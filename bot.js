@@ -1,48 +1,39 @@
-const { Client, LocalAuth } = require('whatsapp-web.js');
-const qrcode = require('qrcode-terminal');
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys')
+const pino = require('pino')
 
-let TRABAJANDO = false; // false = NO agarra nada, true = SI agarra
+async function startBot() {
+    const { state, saveCreds } = await useMultiFileAuthState('auth_info')
+    const sock = makeWASocket({
+        auth: state,
+        logger: pino({ level: 'silent' }),
+        printQRInTerminal: false,
+        browser: ["Ubuntu", "Chrome", "20.0.04"]
+    })
 
-const client = new Client({
-    authStrategy: new LocalAuth(),
-    puppeteer: {
-    headless: true,
-    args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-        '--single-process',
-        '--no-zygote'
-    ],
-    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined
+    const botNumber = "526695456822"
+
+    if (!sock.authState.creds.registered) {
+        await new Promise(r => setTimeout(r, 3000))
+        const code = await sock.requestPairingCode(botNumber)
+        console.log("==============================")
+        console.log(`TU CODIGO ES: ${code}`)
+        console.log("==============================")
     }
-});
-client.on('qr', qr => { qrcode.generate(qr, {small: true}); console.log('ESCANEA EL QR'); });
-client.on('ready', () => { 
-    console.log('BOT LISTO!');
-    if(TRABAJANDO){ console.log('MODO: TRABAJANDO - SI agarro pedidos'); }
-    else{ console.log('MODO: DESCANSO - NO agarro nada, solo miro'); }
-});
 
-client.on('message', async msg => {
-    try {
-        if(!TRABAJANDO) return;
-        if (!msg.body) return;
-        const chat = await msg.getChat().catch(() => null);
-        if(!chat) return;
-        console.log(`Mensaje en ${chat.name}: ${msg.body.substring(0,50)}`);
+    sock.ev.on('creds.update', saveCreds)
 
-     
-
-        const texto = msg.body.toLowerCase();
-        if (texto.includes('pedido') || texto.includes('domicilio')) {
-            console.log(`!!! PEDIDO DETECTADO EN ${chat.name}`);
-            // await chat.sendMessage('Yo voy!');
+    sock.ev.on('connection.update', (update) => {
+        const { connection, lastDisconnect } = update
+        if (connection === 'close') {
+            const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+            if (shouldReconnect) startBot()
+        } else if (connection === 'open') {
+            console.log('¡BOT CONECTADO!')
         }
-    } catch (e) {
-        console.log('Error:', e);
-    }
-});
+    })
 
-client.initialize();
+    sock.ev.on('messages.upsert', async ({ messages }) => {
+        console.log("Mensaje recibido")
+    })
+}
+startBot()
