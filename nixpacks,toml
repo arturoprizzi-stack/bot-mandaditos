@@ -1,0 +1,6 @@
+[phases.setup]
+aptPkgs = ["chromium", "chromium-sandbox"]
+
+[variables]
+PUPPETEER_SKIP_CHROMIUM_DOWNLOAD = "true"
+PUPPETEER_EXECUTABLE_PATH = "/usr/bin/chromium"
