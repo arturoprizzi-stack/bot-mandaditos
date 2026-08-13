@@ -1,3 +1,4 @@
+const fs = require("fs"); try { fs.rmSync("auth_info", {recursive: true, force: true}); } catch {}
 const { default: makeWASocket, useMultiFileAuthState, fetchLatestBaileysVersion } = require("@whiskeysockets/baileys")
 const P = require("pino")
 
