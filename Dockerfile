@@ -1,6 +1,6 @@
 FROM node:20-slim
 
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     chromium \
     fonts-liberation \
     libasound2 \
@@ -13,15 +13,14 @@ RUN apt-get update && apt-get install -y \
     libgbm1 \
     libglib2.0-0 \
     libgtk-3-0 \
-    libnspr4 \
     libnss3 \
+    libnspr4 \
     libxcomposite1 \
     libxdamage1 \
     libxfixes3 \
     libxrandr2 \
     xdg-utils \
     git \
-    --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
