@@ -5,9 +5,19 @@ let TRABAJANDO = false; // false = NO agarra nada, true = SI agarra
 
 const client = new Client({
     authStrategy: new LocalAuth(),
-    puppeteer: { headless: false, args: ['--no-sandbox','--disable-setuid-sandbox'] }
+    puppeteer: {
+    headless: true,
+    args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+        '--single-process',
+        '--no-zygote'
+    ],
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined
+    }
 });
-
 client.on('qr', qr => { qrcode.generate(qr, {small: true}); console.log('ESCANEA EL QR'); });
 client.on('ready', () => { 
     console.log('BOT LISTO!');
