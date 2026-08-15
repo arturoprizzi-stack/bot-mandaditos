@@ -36,7 +36,7 @@ app.post("/toggle-bot", (req,res) => { BOT_ACTIVO =!BOT_ACTIVO; res.json({activo
 app.post("/toggle-grupo/:nombre", (req,res) => { const n = req.params.nombre; if(GRUPOS_CONFIG[n]!== undefined) GRUPOS_CONFIG[n] =!GRUPOS_CONFIG[n]; res.json({ok:true}) })
 
 async function start() {
-    const { state, saveCreds } = await useMultiFileAuthState("auth_final")
+    const { state, saveCreds } = await useMultiFileAuthState("auth_final2")
     const numero = "5216695456822"
     const sock = makeWASocket({ auth: state, printQRInTerminal: false })
     sockGlobal = sock
