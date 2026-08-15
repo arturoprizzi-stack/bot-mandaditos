@@ -17,7 +17,7 @@ async function startBot() {
             console.log("Esperando 5 segundos para pedir codigo...")
             await new Promise(r => setTimeout(r, 5000))
             try {
-                const code = await sock.requestPairingCode("5216695456822")
+                const code = await sock.requestPairingCode("526695456822")
                 console.log("==========================")
                 console.log("TU CODIGO ES: " + code)
                 console.log("==========================")
