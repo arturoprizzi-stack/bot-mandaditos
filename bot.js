@@ -1,37 +1,36 @@
-const { default: makeWASocket, useMultiFileAuthState, fetchLatestBaileysVersion, DisconnectReason } = require("@whiskeysockets/baileys")
-const P = require("pino")
+const { default: makeWASocket, useMultiFileAuthState } = require("@whiskeysockets/baileys")
 
-async function startBot() {
-    const { version } = await fetchLatestBaileysVersion()
-    const { state, saveCreds } = await useMultiFileAuthState("auth_info")
+async function start() {
+    const { state, saveCreds } = await useMultiFileAuthState("auth_final")
+    const numero = "5216695456822"
 
-    const sock = makeWASocket({ 
-        version, 
-        auth: state, 
-        logger: P({ level: "silent" }), 
-        browser: ["Chrome", "Windows", "10"] 
+    const sock = makeWASocket({
+        auth: state,
+        printQRInTerminal: false
     })
 
     sock.ev.on("creds.update", saveCreds)
 
-    if(!sock.authState.creds.registered){
-        const numero = "5216695456822"
-        setTimeout(async () => {
-            const code = await sock.requestPairingCode(numero)
+    if (!state.creds.registered) {
+        await new Promise(r => setTimeout(r, 3000))
+        try {
+            let code = await sock.requestPairingCode(numero)
             console.log("TU CODIGO ES: " + code)
-        }, 3000)
+        } catch(e) {
+            console.log("Error pidiendo codigo:", e.message)
+        }
     }
 
-    sock.ev.on("connection.update", (update) => {
-        const { connection, lastDisconnect } = update
-        if(connection === 'close') {
-            const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
-            console.log('Conexion cerrada, reconectando:', shouldReconnect)
-            if(shouldReconnect) startBot()
-        } else if(connection === 'open') {
-            console.log('¡CONECTADO! Bot funcionando')
+    sock.ev.on("connection.update", async (update) => {
+        const { connection } = update
+        if (connection === "open") {
+            console.log("¡VINCULADO CON EXITO!")
+        }
+        if (connection === "close") {
+            console.log("Conexion cerrada, reconectando: true")
+            // No cerramos con false, reintentamos
+            setTimeout(start, 5000)
         }
     })
 }
-
-startBot()
+start()
