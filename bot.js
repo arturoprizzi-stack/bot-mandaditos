@@ -4,6 +4,7 @@ const P = require("pino")
 async function startBot() {
     const { version } = await fetchLatestBaileysVersion()
     const { state, saveCreds } = await useMultiFileAuthState("auth_info")
+
     const sock = makeWASocket({ 
         version, 
         auth: state, 
@@ -13,14 +14,11 @@ async function startBot() {
 
     sock.ev.on("creds.update", saveCreds)
 
-    // ESTO ES LO NUEVO PARA EL CODIGO DE 8 DIGITOS
     if(!sock.authState.creds.registered){
-        const numero = "5216691234567" // <--- CAMBIA ESTO POR TU NUMERO REAL
+        const numero = "5216691234567"
         setTimeout(async () => {
             const code = await sock.requestPairingCode(numero)
-            console.log("==================================")
             console.log("TU CODIGO ES: " + code)
-            console.log("==================================")
         }, 3000)
     }
 
@@ -35,4 +33,5 @@ async function startBot() {
         }
     })
 }
+
 startBot()
