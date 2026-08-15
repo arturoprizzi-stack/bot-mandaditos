@@ -63,33 +63,36 @@ async function start() {
     })
 
     sock.ev.on("messages.upsert", async ({ messages }) => {
-        if(!BOT_ACTIVO) return
-        const msg = messages[0]
-        if(!msg.message || msg.key.fromMe) return
-        const jid = msg.key.remoteJid
-        const esGrupo = jid.endsWith("@g.us")
-        const texto = (msg.message.conversation || msg.message.extendedTextMessage?.text || "").toLowerCase()
-        console.log(`Mensaje de ${jid}: ${texto}`)
-        if(!esGrupo){
-            if(texto.includes("hola") || texto.includes("menu") || texto.includes("buenas")){
-                await sock.sendMessage(jid, { text: `¡Hola! 👋 Soy el Bot de Mandaditos Mandelitos\n\n🛵 MENU:\n1️⃣ Mandado Veloz\n2️⃣ Mandado Al Dente\n3️⃣ Mandelitos\n\nEscribe el número del servicio que necesitas.` })
+        try{
+            if(!BOT_ACTIVO) return
+            const msg = messages[0]
+            if(!msg.message || msg.key.fromMe) return
+            const jid = msg.key.remoteJid
+            const esGrupo = jid.endsWith("@g.us")
+            const texto = (msg.message.conversation || msg.message.extendedTextMessage?.text || "").toLowerCase()
+            console.log(`Mensaje de ${jid}: ${texto}`)
+            if(esGrupo){
+                try{
+                    const meta = await sock.groupMetadata(jid)
+                    const nombreGrupo = meta.subject
+                    let activo = false
+                    for(let k in GRUPOS_CONFIG){
+                        if(nombreGrupo.includes(k) && GRUPOS_CONFIG[k]) activo = true
+                    }
+                    if(!activo) return
+                    if(texto.includes("moto") || texto.includes("mandado") || texto.includes("servicio") || texto.includes("solicita") || texto.includes("ocupo") || texto.includes("repartidor")){
+                        await sock.sendMessage(jid, { text: "Yo 🙋‍♂️" })
+                        console.log(`✅ AUTO-YO en ${nombreGrupo}`)
+                    }
+                }catch(e){ console.log("Error grupo:", e.message) }
                 return
             }
-        }
-        if(esGrupo){
-            try{
-                const meta = await sock.groupMetadata(jid)
-                const nombreGrupo = meta.subject
-                let activo = false
-                for(let k in GRUPOS_CONFIG){
-                    if(nombreGrupo.includes(k) && GRUPOS_CONFIG[k]) activo = true
-                }
-                if(!activo) return
-                if(texto.includes("hola") || texto.includes("bot")){
-                    await sock.sendMessage(jid, { text: `¡Aquí estoy! 🟢 Bot activo para ${nombreGrupo}` })
-                }
-            }catch(e){ console.log("Error grupo:", e.message) }
-        }
+            if(!esGrupo){
+                await sock.readMessages([msg.key])
+                console.log(`📩 PRIVADO manual para ti: ${jid}`)
+                return
+            }
+        }catch(e){ console.error("Error:", e) }
     })
 }
 
