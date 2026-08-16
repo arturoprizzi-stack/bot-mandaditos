@@ -17,6 +17,12 @@ let sock;
 let pairingCode = "DESCONECTADO - GENERA NUEVA CLAVE";
 let lastNumber = "526695456822";
 
+// ============ NORMALIZACIÓN (quita acentos, pasa a mayúsculas) ============
+// Así "Sabo­ría", "SABORIA", "saboria" y "SaBoRíA" se tratan como lo mismo.
+function norm(s) {
+  return (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+}
+
 // ============ CONFIG PERSISTENTE (usa el mismo disco que auth_info) ============
 const CONFIG_PATH = path.join(__dirname, 'auth_info', 'config.json');
 
@@ -38,40 +44,48 @@ function guardarActivos() {
   } catch (e) { console.log("Error guardando config", e.message); }
 }
 
-// ============ DATOS POR RESTAURANTE (todo en un solo lugar) ============
-// numeros: agrega aquí los números reales en formato 52 + 10 dígitos (sin el "1" extra).
-// Puedes agregar números de prueba en la misma lista, ej: ["5216xxxxxxxxx", "52TUNUMERODEPRUEBA"]
+// ============ DATOS POR RESTAURANTE ============
+// numeros: formato 52 + 10 dígitos (sin el "1" extra), tal como confirmamos que funciona.
+// contactosNombre: respaldo por si el número no hace match (ej. cambia de número, o es número de prueba).
 const RESTAURANTES = {
   villafit: {
     nombre: "VILLAFIT", grupo: "Veloces 2", activo: true,
     contactosNombre: ["VILLAFIT", "VILLAFIT2"],
-    numeros: []
+    numeros: ["526699128588", "526691220281"]
   },
   saboria: {
     nombre: "MENUDO DOÑA LUPE SABORIA", grupo: "Veloces 2", activo: true,
     contactosNombre: ["MENUDO*SANCHEZ", "MENUDO*SANCHEZ2"],
-    numeros: []
+    numeros: ["526691484113", "526691222437"]
   },
   roll: {
     nombre: "LA CASA DEL ROLL", grupo: "Veloces 5", activo: true,
-    contactosNombre: ["ROLES*SANCHEZC"],
-    numeros: []
+    contactosNombre: ["ROLES*SANCHEZC", "ROLES*SANCHEZ"],
+    numeros: ["526691491778"]
   },
   carretita: {
     nombre: "TACOS LA CARRETITA", grupo: "Veloces 2", activo: true,
     contactosNombre: ["TACOS*ESTADIO"],
-    numeros: []
+    numeros: ["526691172841"]
   },
   maz: {
     nombre: "MAZ SALADS", grupo: "MAZ SALADS TOREO", activo: true,
-    contactosNombre: ["BRENDASALADS"],
-    numeros: []
+    contactosNombre: ["BRENDASALADS", "MAZ SALADS", "MAZSALADS", "MAZ SALADS TOREO", "MAZSALADS TOREO"],
+    numeros: ["526692514582"]
   },
   aldente: {
     nombre: "ALDENTE", grupo: "Al Dente Pedidos", activo: true,
-    contactosNombre: ["ALDENTE"],
-    numeros: []
+    contactosNombre: ["ALDENTE", "ALDENTE3", "IRVING"],
+    numeros: ["526692699876", "526691619067", "526692705147"]
   }
+};
+
+// Palabras clave (ya sin acentos ni mayúsculas, porque se normalizan al comparar)
+const KEYWORDS = {
+  saboria: ["saboria"],
+  roll: ["av. de la marina 432", "av de la marina 432"],
+  carretita: ["tacos la carretita"],
+  aldente: ["quete","quette","muralla","saljo","saljoo","sajo","sajoo","olla"]
 };
 
 // Cargar estado guardado de ON/OFF (si existe) al arrancar
@@ -88,7 +102,13 @@ let gruposCache = {};
 function esDeRestaurante(key, pushName, senderNumber) {
   const r = RESTAURANTES[key];
   if (r.numeros.some(n => n && senderNumber === n)) return true;
-  return r.contactosNombre.some(c => pushName.includes(c));
+  const pn = norm(pushName);
+  return r.contactosNombre.some(c => pn.includes(norm(c)));
+}
+
+function textoContieneAlguna(textNorm, key) {
+  const lista = KEYWORDS[key] || [];
+  return lista.some(k => textNorm.includes(norm(k)));
 }
 
 async function startBot() {
@@ -139,8 +159,9 @@ async function startBot() {
       const senderJid = msg.key.participant || jid;
       const senderNumber = senderJid.split('@')[0];
 
-      const text = (msg.message.conversation || msg.message.extendedTextMessage?.text || msg.message.imageMessage?.caption || "").toLowerCase();
-      const pushName = (msg.pushName || "SIN NOMBRE").toUpperCase();
+      const textoOriginal = msg.message.conversation || msg.message.extendedTextMessage?.text || msg.message.imageMessage?.caption || "";
+      const textNorm = norm(textoOriginal);
+      const pushName = msg.pushName || "SIN NOMBRE";
       const hasImage = !!msg.message.imageMessage;
 
       let nombreGrupo = "CHAT PRIVADO";
@@ -154,28 +175,29 @@ async function startBot() {
           } catch(e) {}
         }
       }
+      const grupoNorm = norm(nombreGrupo);
 
-      console.log(`[RECIBIDO] ${nombreGrupo} | De:${pushName} (${senderNumber}) | Texto:${text.substring(0,80)}`);
+      console.log(`[RECIBIDO] ${nombreGrupo} | De:${pushName} (${senderNumber}) | Texto:${textoOriginal.substring(0,80)}`);
 
       if (!jid.endsWith('@g.us')) return;
 
-      if (nombreGrupo.includes("Veloces 2") && RESTAURANTES.villafit.activo && esDeRestaurante('villafit', pushName, senderNumber) && hasImage) {
+      if (grupoNorm.includes(norm("Veloces 2")) && RESTAURANTES.villafit.activo && esDeRestaurante('villafit', pushName, senderNumber) && hasImage) {
         await sock.sendMessage(jid,{text:"Yo"},{quoted:msg}); return;
       }
-      if (nombreGrupo.includes("Veloces 2") && RESTAURANTES.saboria.activo && esDeRestaurante('saboria', pushName, senderNumber) && text.includes("saboria")) {
+      if (grupoNorm.includes(norm("Veloces 2")) && RESTAURANTES.saboria.activo && esDeRestaurante('saboria', pushName, senderNumber) && textoContieneAlguna(textNorm,'saboria')) {
         if (new Date().getDay() === 0) return;
         await sock.sendMessage(jid,{text:"Yo"},{quoted:msg}); return;
       }
-      if (nombreGrupo.includes("Veloces 5") && RESTAURANTES.roll.activo && esDeRestaurante('roll', pushName, senderNumber) && text.includes("av. de la marina 432")) {
+      if (grupoNorm.includes(norm("Veloces 5")) && RESTAURANTES.roll.activo && esDeRestaurante('roll', pushName, senderNumber) && textoContieneAlguna(textNorm,'roll')) {
         await sock.sendMessage(jid,{text:"Yo"},{quoted:msg}); return;
       }
-      if (nombreGrupo.includes("Veloces 2") && RESTAURANTES.carretita.activo && esDeRestaurante('carretita', pushName, senderNumber) && text.includes("tacos la carretita")) {
+      if (grupoNorm.includes(norm("Veloces 2")) && RESTAURANTES.carretita.activo && esDeRestaurante('carretita', pushName, senderNumber) && textoContieneAlguna(textNorm,'carretita')) {
         await sock.sendMessage(jid,{text:"Yo"},{quoted:msg}); return;
       }
-      if (nombreGrupo.includes("MAZ SALADS TOREO") && RESTAURANTES.maz.activo && esDeRestaurante('maz', pushName, senderNumber)) {
+      if (grupoNorm.includes(norm("MAZ SALADS TOREO")) && RESTAURANTES.maz.activo && esDeRestaurante('maz', pushName, senderNumber)) {
         await sock.sendMessage(jid,{text:"Yo"},{quoted:msg}); return;
       }
-      if (nombreGrupo.includes("Al Dente Pedidos") && RESTAURANTES.aldente.activo && esDeRestaurante('aldente', pushName, senderNumber) && ["quete","quette","muralla","saljo","saljoo","sajo","sajoo","olla"].some(k=>text.includes(k))) {
+      if (grupoNorm.includes(norm("Al Dente Pedidos")) && RESTAURANTES.aldente.activo && esDeRestaurante('aldente', pushName, senderNumber) && textoContieneAlguna(textNorm,'aldente')) {
         await sock.sendMessage(jid,{text:"Yo"},{quoted:msg}); return;
       }
     } catch(e) {
@@ -186,7 +208,7 @@ async function startBot() {
 
 app.get('/', (req,res) => {
   let botones = Object.keys(RESTAURANTES).map(k => `<div style="margin:8px;padding:10px;border:1px solid #ccc"><b>${RESTAURANTES[k].nombre}</b> - ${RESTAURANTES[k].grupo} - ${RESTAURANTES[k].activo?'ON':'OFF'} <a href="/toggle/${k}"><button>${RESTAURANTES[k].activo?'APAGAR':'PRENDER'}</button></a></div>`).join('');
-  res.send(`<html><body><h2>MANDADITOS BOT - V5</h2><h1 style="background:black;color:lime;padding:20px;">${pairingCode}</h1><form action="/pair"><input name="number" value="${lastNumber}"><button>GENERAR CLAVE</button></form> <a href="/reset"><button style="background:red;color:white;padding:10px;">RESET</button></a><hr><h3>6 SAGRADOS (los cambios se guardan permanentemente)</h3>${botones}</body></html>`);
+  res.send(`<html><body><h2>MANDADITOS BOT - V6</h2><h1 style="background:black;color:lime;padding:20px;">${pairingCode}</h1><form action="/pair"><input name="number" value="${lastNumber}"><button>GENERAR CLAVE</button></form> <a href="/reset"><button style="background:red;color:white;padding:10px;">RESET</button></a><hr><h3>6 SAGRADOS (los cambios se guardan permanentemente)</h3>${botones}</body></html>`);
 });
 
 app.get('/toggle/:id', (req,res)=>{
