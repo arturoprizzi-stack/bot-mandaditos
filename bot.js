@@ -4,23 +4,22 @@ const P = require('pino');
 
 const app = express();
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
 let sock;
 let pairingCode = "DALE A GENERAR CLAVE ABAJO";
 let lastNumber = "526695456822";
 
-// MEMORIA SAGRADA - 6 REALES - NO INVENTAR
+// MEMORIA SAGRADA - 6 REALES
 const RESTAURANTES = {
   villafit: { nombre: "VILLAFIT", contactos: ["VILLAFIT","VILLAFIT2"], grupo: "Veloces 2", activo: true, soloFotos: true },
-  saboria: { nombre: "MENUDO DOÑA LUPE SABORIA", contactos: ["MENUDO*SANCHEZ","MENUDO*SANCHEZ2"], grupo: "Veloces 2", palabra: "SABORIA", activo: true, soloDomingo: true },
-  roll: { nombre: "LA CASA DEL ROLL Sanchez Celis", contactos: ["ROLES*SANCHEZC"], grupo: "Veloces 5", frase: "Av. de la Marina 432", activo: true },
-  carretita: { nombre: "TACOS LA CARRETITA", contactos: ["TACOS*ESTADIO"], grupo: "Veloces 2", frase: "Tacos La Carretita", activo: true },
+  saboria: { nombre: "MENUDO DOÑA LUPE SABORIA", contactos: ["MENUDO*SANCHEZ","MENUDO*SANCHEZ2"], grupo: "Veloces 2", activo: true, soloDomingo: true },
+  roll: { nombre: "LA CASA DEL ROLL", contactos: ["ROLES*SANCHEZC"], grupo: "Veloces 5", activo: true },
+  carretita: { nombre: "TACOS LA CARRETITA", contactos: ["TACOS*ESTADIO"], grupo: "Veloces 2", activo: true },
   maz: { nombre: "MAZ SALADS", contactos: ["BRENDASALADS"], grupo: "MAZ SALADS TOREO", activo: true },
-  aldente: { nombre: "ALDENTE", contactos: ["ALDENTE"], grupo: "Al Dente Pedidos", keywords: ["quete","quette","muralla","saljo","saljoo","sajo","sajoo","olla"], activo: true }
+  aldente: { nombre: "ALDENTE", contactos: ["ALDENTE"], grupo: "Al Dente Pedidos", activo: true }
 };
 
-let gruposCache = {}; // jid -> nombre
+let gruposCache = {};
 
 async function startBot() {
   const { version } = await fetchLatestBaileysVersion();
@@ -28,42 +27,27 @@ async function startBot() {
   sock = makeWASocket({
     version,
     auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, P().child({ level: "fatal" })) },
-    browser: ["Windows", "Chrome", "124.0.6367.118"], // FIX MEXICO - QUITA UNA PALOMITA
+    browser: ["Windows", "Chrome", "124.0.6367.118"],
     syncFullHistory: false,
     markOnlineOnConnect: false,
-    generateHighQualityLinkPreview: false,
     logger: P({ level: "silent" }),
-    getMessage: async () => { return undefined }
+    getMessage: async () => undefined
   });
   sock.ev.on('creds.update', saveCreds);
-
-  // Cache de grupos
-  sock.ev.on('groups.upsert', async (grps) => {
-    for (let g of grps) gruposCache[g.id] = g.subject;
-  });
 
   sock.ev.on('connection.update', async (u) => {
     const { connection, lastDisconnect } = u;
     if (connection === 'open') {
       pairingCode = "CONECTADO";
-      console.log("CONECTADO - BOT RECIBIENDO MENSAJES OK");
-      // cargar grupos al conectar
       try {
         const all = await sock.groupFetchAllParticipating();
         for (let jid in all) gruposCache[jid] = all[jid].subject;
-        console.log("Grupos cacheados:", Object.values(gruposCache).join(", "));
       } catch(e){}
     }
     if (connection === 'close') {
       const code = lastDisconnect?.error?.output?.statusCode;
-      console.log("Desconectado codigo:", code);
-      if (code!== DisconnectReason.loggedOut) {
-        console.log("Reconectando en 3 seg...");
-        setTimeout(startBot, 3000);
-      } else {
-        pairingCode = "DESCONECTADO - GENERA NUEVA CLAVE";
-        console.log("Sesion cerrada, genera nueva clave");
-      }
+      if (code!== DisconnectReason.loggedOut) setTimeout(startBot, 3000);
+      else pairingCode = "DESCONECTADO - GENERA NUEVA CLAVE";
     }
   });
 
@@ -71,107 +55,49 @@ async function startBot() {
     try {
       const msg = m.messages[0];
       if (!msg.message || msg.key.fromMe) return;
-      if (!msg.key.remoteJid.endsWith('@g.us')) return; // solo grupos
-
       const jid = msg.key.remoteJid;
+      const text = (msg.message.conversation || msg.message.extendedTextMessage?.text || msg.message.imageMessage?.caption || "").toLowerCase();
+      const pushName = (msg.pushName || "").toUpperCase();
+      const hasImage =!!msg.message.imageMessage;
+
+      // PRIVADO: No contesta el bot, contestas tú personalmente
+      if (!jid.endsWith('@g.us')) return;
+
+      // GRUPOS: Solo si es grupo sagrado y contacto sagrado
       let nombreGrupo = gruposCache[jid];
       if (!nombreGrupo) {
-        try { const md = await sock.groupMetadata(jid); nombreGrupo = md.subject; gruposCache[jid] = nombreGrupo; } catch(e){ nombreGrupo = jid; }
+        try { const md = await sock.groupMetadata(jid); nombreGrupo = md.subject; gruposCache[jid] = nombreGrupo; } catch(e){ return; }
       }
 
-      const pushName = (msg.pushName || "").toUpperCase();
-      const text = (msg.message.conversation || msg.message.extendedTextMessage?.text || msg.message.imageMessage?.caption || "").toLowerCase();
-      const hasImage =!!msg.message.imageMessage;
-      const lowerText = text.toLowerCase();
-
-      // 1. VILLAFIT - Veloces 2 - solo fotos
-      if (RESTAURANTES.villafit.activo && nombreGrupo.includes("Veloces 2")) {
-        if (RESTAURANTES.villafit.contactos.some(c => pushName.includes(c))) {
-          if (hasImage) {
-            console.log("VILLAFIT FOTO DETECTADA - RESPONDIENDO YO");
-            await sock.sendMessage(jid, { text: "Yo" }, { quoted: msg });
-          }
-          return;
-        }
+      if (nombreGrupo.includes("Veloces 2") && RESTAURANTES.villafit.contactos.some(c => pushName.includes(c)) && hasImage) {
+        await sock.sendMessage(jid, { text: "Yo" }, { quoted: msg }); return;
       }
-
-      // 2. SABORIA - Veloces 2 - palabra SABORIA - solo domingos
-      if (RESTAURANTES.saboria.activo && nombreGrupo.includes("Veloces 2")) {
-        if (RESTAURANTES.saboria.contactos.some(c => pushName.includes(c))) {
-          if (lowerText.includes("saboria")) {
-            const dia = new Date().getDay(); // 0 domingo
-            if (dia!== 0 && RESTAURANTES.saboria.soloDomingo) { console.log("SABORIA detectado pero no es domingo, ignorado"); return; }
-            console.log("SABORIA DETECTADO - RESPONDIENDO YO");
-            await sock.sendMessage(jid, { text: "Yo" }, { quoted: msg });
-          }
-          return;
-        }
+      if (nombreGrupo.includes("Veloces 2") && RESTAURANTES.saboria.contactos.some(c => pushName.includes(c)) && text.includes("saboria")) {
+        if (new Date().getDay()!== 0) return;
+        await sock.sendMessage(jid, { text: "Yo" }, { quoted: msg }); return;
       }
-
-      // 3. LA CASA DEL ROLL - Veloces 5 - Av. de la Marina 432
-      if (RESTAURANTES.roll.activo && nombreGrupo.includes("Veloces 5")) {
-        if (RESTAURANTES.roll.contactos.some(c => pushName.includes(c))) {
-          if (lowerText.includes("av. de la marina 432")) {
-            console.log("ROLL DETECTADO - RESPONDIENDO YO");
-            await sock.sendMessage(jid, { text: "Yo" }, { quoted: msg });
-          }
-          return;
-        }
+      if (nombreGrupo.includes("Veloces 5") && RESTAURANTES.roll.contactos.some(c => pushName.includes(c)) && text.includes("av. de la marina 432")) {
+        await sock.sendMessage(jid, { text: "Yo" }, { quoted: msg }); return;
       }
-
-      // 4. TACOS LA CARRETITA - Veloces 2 - case insensitive
-      if (RESTAURANTES.carretita.activo && nombreGrupo.includes("Veloces 2")) {
-        if (RESTAURANTES.carretita.contactos.some(c => pushName.includes(c))) {
-          if (lowerText.includes("tacos la carretita")) {
-            console.log("CARRETITA DETECTADO - RESPONDIENDO YO");
-            await sock.sendMessage(jid, { text: "Yo" }, { quoted: msg });
-          }
-          return;
-        }
+      if (nombreGrupo.includes("Veloces 2") && RESTAURANTES.carretita.contactos.some(c => pushName.includes(c)) && text.includes("tacos la carretita")) {
+        await sock.sendMessage(jid, { text: "Yo" }, { quoted: msg }); return;
       }
-
-      // 5. MAZ SALADS - MAZ SALADS TOREO - todo de BRENDASALADS
-      if (RESTAURANTES.maz.activo && nombreGrupo.includes("MAZ SALADS TOREO")) {
-        if (RESTAURANTES.maz.contactos.some(c => pushName.includes(c))) {
-          console.log("MAZ SALADS DETECTADO - RESPONDIENDO YO");
-          await sock.sendMessage(jid, { text: "Yo" }, { quoted: msg });
-          return;
-        }
+      if (nombreGrupo.includes("MAZ SALADS TOREO") && RESTAURANTES.maz.contactos.some(c => pushName.includes(c))) {
+        await sock.sendMessage(jid, { text: "Yo" }, { quoted: msg }); return;
       }
-
-      // 6. ALDENTE - Al Dente Pedidos - keywords
-      if (RESTAURANTES.aldente.activo && nombreGrupo.includes("Al Dente Pedidos")) {
-        if (RESTAURANTES.aldente.contactos.some(c => pushName.includes(c))) {
-          if (RESTAURANTES.aldente.keywords.some(k => lowerText.includes(k))) {
-            console.log("ALDENTE DETECTADO - RESPONDIENDO YO");
-            await sock.sendMessage(jid, { text: "Yo" }, { quoted: msg });
-          }
-          return;
-        }
+      if (nombreGrupo.includes("Al Dente Pedidos") && RESTAURANTES.aldente.contactos.some(c => pushName.includes(c)) && ["quete","quette","muralla","saljo","saljoo","sajo","sajoo","olla"].some(k => text.includes(k))) {
+        await sock.sendMessage(jid, { text: "Yo" }, { quoted: msg }); return;
       }
+      // Si no es sagrado, no hace nada
 
-    } catch (e) { console.log("Error msg:", e.message) }
+    } catch(e){}
   });
 }
 
-// WEB CON INTERRUPTORES POR RESTAURANTE
 app.get('/', (req, res) => {
-  let html = `
-  <html><head><meta name="viewport" content="width=device-width,initial-scale=1">
-  <style>body{font-family:sans-serif;padding:15px}.on{color:green}.off{color:red}.card{border:1px solid #ccc;padding:10px;margin:10px 0;border-radius:8px}</style>
-  </head><body>
-  <h2>MANDADITOS - CLAVE MEXICO - FIX 1 PALOMITA</h2>
-  <h1 style="background:black;color:lime;padding:20px;font-size:32px;">${pairingCode}</h1>
-  <form action="/pair"><input name="number" value="${lastNumber}" style="padding:8px"><button>GENERAR CLAVE</button></form>
-  <hr><h3>Interruptores POR RESTAURANTE (Sagrado)</h3>
-  `;
-  for (let id in RESTAURANTES) {
-    const r = RESTAURANTES[id];
-    html += `<div class="card"><b>${r.nombre}</b> - Grupo: ${r.grupo} - Contacto: ${r.contactos.join(", ")}<br>
-    Estado: <span class="${r.activo?'on':'off'}">${r.activo?'ACTIVO':'APAGADO'}</span>
-    <a href="/toggle/${id}"><button>${r.activo?'APAGAR':'PRENDER'}</button></a></div>`;
-  }
-  html += `</body></html>`;
+  let html = `<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>
+  <h2>MANDADITOS BOT</h2><h1 style="background:black;color:lime;padding:20px;">${pairingCode}</h1>
+  <form action="/pair"><input name="number" value="${lastNumber}"><button>GENERAR CLAVE</button></form></body></html>`;
   res.send(html);
 });
 
@@ -182,18 +108,10 @@ app.get('/pair', async (req, res) => {
   try {
     if (!sock) await startBot();
     await new Promise(r => setTimeout(r, 1500));
-    const code = await sock.requestPairingCode(num);
-    pairingCode = code;
-    console.log("CLAVE GENERADA: " + code);
-  } catch (e) { pairingCode = "ERROR: " + e.message; console.log(e); }
-  res.redirect('/');
-});
-
-app.get('/toggle/:id', (req, res) => {
-  const id = req.params.id;
-  if (RESTAURANTES[id]) RESTAURANTES[id].activo =!RESTAURANTES[id].activo;
+    pairingCode = await sock.requestPairingCode(num);
+  } catch(e){ pairingCode = "ERROR: " + e.message; }
   res.redirect('/');
 });
 
 startBot();
-app.listen(10000, () => console.log("Bot listo - FIX 1 PALOMITA ACTIVO"));
+app.listen(process.env.PORT || 10000, () => console.log("Bot listo"));
