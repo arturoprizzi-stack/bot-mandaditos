@@ -28,8 +28,12 @@ async function startBot() {
   sock = makeWASocket({
     version,
     auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, P().child({ level: "fatal" })) },
-    browser: ["Ubuntu", "Chrome", "22.04.0"], // FIX MEXICO
-    logger: P({ level: "silent" })
+    browser: ["Windows", "Chrome", "124.0.6367.118"], // FIX MEXICO - QUITA UNA PALOMITA
+    syncFullHistory: false,
+    markOnlineOnConnect: false,
+    generateHighQualityLinkPreview: false,
+    logger: P({ level: "silent" }),
+    getMessage: async () => { return undefined }
   });
   sock.ev.on('creds.update', saveCreds);
 
@@ -42,7 +46,7 @@ async function startBot() {
     const { connection, lastDisconnect } = u;
     if (connection === 'open') {
       pairingCode = "CONECTADO";
-      console.log("CONECTADO");
+      console.log("CONECTADO - BOT RECIBIENDO MENSAJES OK");
       // cargar grupos al conectar
       try {
         const all = await sock.groupFetchAllParticipating();
@@ -50,7 +54,17 @@ async function startBot() {
         console.log("Grupos cacheados:", Object.values(gruposCache).join(", "));
       } catch(e){}
     }
-    if (connection === 'close' && lastDisconnect?.error?.output?.statusCode!== DisconnectReason.loggedOut) startBot();
+    if (connection === 'close') {
+      const code = lastDisconnect?.error?.output?.statusCode;
+      console.log("Desconectado codigo:", code);
+      if (code!== DisconnectReason.loggedOut) {
+        console.log("Reconectando en 3 seg...");
+        setTimeout(startBot, 3000);
+      } else {
+        pairingCode = "DESCONECTADO - GENERA NUEVA CLAVE";
+        console.log("Sesion cerrada, genera nueva clave");
+      }
+    }
   });
 
   sock.ev.on('messages.upsert', async (m) => {
@@ -69,8 +83,6 @@ async function startBot() {
       const text = (msg.message.conversation || msg.message.extendedTextMessage?.text || msg.message.imageMessage?.caption || "").toLowerCase();
       const hasImage =!!msg.message.imageMessage;
       const lowerText = text.toLowerCase();
-
-      // console.log(`Grupo:${nombreGrupo} | De:${pushName} | Texto:${text.substring(0,50)} | Foto:${hasImage}`);
 
       // 1. VILLAFIT - Veloces 2 - solo fotos
       if (RESTAURANTES.villafit.activo && nombreGrupo.includes("Veloces 2")) {
@@ -148,7 +160,7 @@ app.get('/', (req, res) => {
   <html><head><meta name="viewport" content="width=device-width,initial-scale=1">
   <style>body{font-family:sans-serif;padding:15px}.on{color:green}.off{color:red}.card{border:1px solid #ccc;padding:10px;margin:10px 0;border-radius:8px}</style>
   </head><body>
-  <h2>MANDADITOS - CLAVE MEXICO</h2>
+  <h2>MANDADITOS - CLAVE MEXICO - FIX 1 PALOMITA</h2>
   <h1 style="background:black;color:lime;padding:20px;font-size:32px;">${pairingCode}</h1>
   <form action="/pair"><input name="number" value="${lastNumber}" style="padding:8px"><button>GENERAR CLAVE</button></form>
   <hr><h3>Interruptores POR RESTAURANTE (Sagrado)</h3>
@@ -173,7 +185,7 @@ app.get('/pair', async (req, res) => {
     const code = await sock.requestPairingCode(num);
     pairingCode = code;
     console.log("CLAVE GENERADA: " + code);
-  } catch (e) { pairingCode = "ERROR"; console.log(e); }
+  } catch (e) { pairingCode = "ERROR: " + e.message; console.log(e); }
   res.redirect('/');
 });
 
@@ -184,4 +196,4 @@ app.get('/toggle/:id', (req, res) => {
 });
 
 startBot();
-app.listen(10000, () => console.log("Bot listo - 6 restaurantes reales - interruptores por restaurante"));
+app.listen(10000, () => console.log("Bot listo - FIX 1 PALOMITA ACTIVO"));
