@@ -1,12 +1,11 @@
 const fs = require('fs');
+const path = require('path');
 const express = require('express');
 const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, makeCacheableSignalKeyStore, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
 const P = require('pino');
 const app = express();
 
 // ============ MANEJADORES GLOBALES DE ERRORES ============
-// Sin esto, si el proceso truena por una excepción no capturada,
-// Render lo reinicia en silencio y nunca sabes por qué.
 process.on('uncaughtException', (err) => {
   console.error('!!! UNCAUGHT EXCEPTION !!!', err);
 });
@@ -18,29 +17,79 @@ let sock;
 let pairingCode = "DESCONECTADO - GENERA NUEVA CLAVE";
 let lastNumber = "526695456822";
 
-// ============ NÚMEROS DE CADA RESTAURANTE ============
-// Rellena aquí el número real de cada contacto (formato: 52XXXXXXXXXX@s.whatsapp.net)
-// Esto es más confiable que pushName, que es el nombre que ELLOS pusieron en su perfil,
-// no el que tú guardaste en tus contactos.
-const NUMEROS = {
-  villafit: ["", ""],      // VILLAFIT, VILLAFIT2
-  saboria: ["", ""],       // MENUDO*SANCHEZ, MENUDO*SANCHEZ2
-  roll: [""],              // ROLES*SANCHEZC
-  carretita: [""],         // TACOS*ESTADIO
-  maz: [""],                // BRENDASALADS
-  aldente: [""]              // ALDENTE
+// ============ CONFIG PERSISTENTE (usa el mismo disco que auth_info) ============
+const CONFIG_PATH = path.join(__dirname, 'auth_info', 'config.json');
+
+function cargarActivos() {
+  try {
+    if (fs.existsSync(CONFIG_PATH)) {
+      return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+    }
+  } catch (e) { console.log("Error leyendo config", e.message); }
+  return null;
+}
+
+function guardarActivos() {
+  try {
+    fs.mkdirSync(path.dirname(CONFIG_PATH), { recursive: true });
+    const activos = {};
+    for (const k in RESTAURANTES) activos[k] = RESTAURANTES[k].activo;
+    fs.writeFileSync(CONFIG_PATH, JSON.stringify(activos, null, 2));
+  } catch (e) { console.log("Error guardando config", e.message); }
+}
+
+// ============ DATOS POR RESTAURANTE (todo en un solo lugar) ============
+// numeros: agrega aquí los números reales en formato 52 + 10 dígitos (sin el "1" extra).
+// Puedes agregar números de prueba en la misma lista, ej: ["5216xxxxxxxxx", "52TUNUMERODEPRUEBA"]
+const RESTAURANTES = {
+  villafit: {
+    nombre: "VILLAFIT", grupo: "Veloces 2", activo: true,
+    contactosNombre: ["VILLAFIT", "VILLAFIT2"],
+    numeros: []
+  },
+  saboria: {
+    nombre: "MENUDO DOÑA LUPE SABORIA", grupo: "Veloces 2", activo: true,
+    contactosNombre: ["MENUDO*SANCHEZ", "MENUDO*SANCHEZ2"],
+    numeros: []
+  },
+  roll: {
+    nombre: "LA CASA DEL ROLL", grupo: "Veloces 5", activo: true,
+    contactosNombre: ["ROLES*SANCHEZC"],
+    numeros: []
+  },
+  carretita: {
+    nombre: "TACOS LA CARRETITA", grupo: "Veloces 2", activo: true,
+    contactosNombre: ["TACOS*ESTADIO"],
+    numeros: []
+  },
+  maz: {
+    nombre: "MAZ SALADS", grupo: "MAZ SALADS TOREO", activo: true,
+    contactosNombre: ["BRENDASALADS"],
+    numeros: []
+  },
+  aldente: {
+    nombre: "ALDENTE", grupo: "Al Dente Pedidos", activo: true,
+    contactosNombre: ["ALDENTE"],
+    numeros: []
+  }
 };
 
-const RESTAURANTES = {
-  villafit: { nombre: "VILLAFIT", contactos: ["VILLAFIT","VILLAFIT2"], grupo: "Veloces 2", activo: true },
-  saboria: { nombre: "MENUDO DOÑA LUPE SABORIA", contactos: ["MENUDO*SANCHEZ","MENUDO*SANCHEZ2"], grupo: "Veloces 2", activo: true },
-  roll: { nombre: "LA CASA DEL ROLL", contactos: ["ROLES*SANCHEZC"], grupo: "Veloces 5", activo: true },
-  carretita: { nombre: "TACOS LA CARRETITA", contactos: ["TACOS*ESTADIO"], grupo: "Veloces 2", activo: true },
-  maz: { nombre: "MAZ SALADS", contactos: ["BRENDASALADS"], grupo: "MAZ SALADS TOREO", activo: true },
-  aldente: { nombre: "ALDENTE", contactos: ["ALDENTE"], grupo: "Al Dente Pedidos", activo: true }
-};
+// Cargar estado guardado de ON/OFF (si existe) al arrancar
+const activosGuardados = cargarActivos();
+if (activosGuardados) {
+  for (const k in RESTAURANTES) {
+    if (typeof activosGuardados[k] === 'boolean') RESTAURANTES[k].activo = activosGuardados[k];
+  }
+  console.log("Config de switches cargada desde disco");
+}
 
 let gruposCache = {};
+
+function esDeRestaurante(key, pushName, senderNumber) {
+  const r = RESTAURANTES[key];
+  if (r.numeros.some(n => n && senderNumber === n)) return true;
+  return r.contactosNombre.some(c => pushName.includes(c));
+}
 
 async function startBot() {
   const { version } = await fetchLatestBaileysVersion();
@@ -50,13 +99,11 @@ async function startBot() {
     version,
     auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, P().child({ level: "fatal" })) },
     browser: ["Ubuntu", "Chrome", "22.04.0"],
-    // Desactivado: no necesitas el historial completo para un bot en tiempo real,
-    // y sincronizarlo puede saturar el proceso al conectar.
     syncFullHistory: false,
     markOnlineOnConnect: true,
     fireInitQueries: true,
     shouldSyncHistoryMessage: () => false,
-    logger: P({ level: "warn" }), // antes "silent" - ahora sí vas a ver errores internos de Baileys
+    logger: P({ level: "warn" }),
     getMessage: async () => undefined
   });
 
@@ -89,7 +136,6 @@ async function startBot() {
       if (msg.key.fromMe) return;
 
       const jid = msg.key.remoteJid;
-      // Para grupos, el número real del que manda el mensaje viene en "participant"
       const senderJid = msg.key.participant || jid;
       const senderNumber = senderJid.split('@')[0];
 
@@ -113,30 +159,23 @@ async function startBot() {
 
       if (!jid.endsWith('@g.us')) return;
 
-      // Coincidencia por número si ya lo llenaste en NUMEROS, si no, cae de regreso a pushName
-      const esDe = (key) => {
-        const nums = NUMEROS[key] || [];
-        if (nums.some(n => n && senderNumber === n)) return true;
-        return RESTAURANTES[key].contactos.some(c => pushName.includes(c));
-      };
-
-      if (nombreGrupo.includes("Veloces 2") && RESTAURANTES.villafit.activo && esDe('villafit') && hasImage) {
+      if (nombreGrupo.includes("Veloces 2") && RESTAURANTES.villafit.activo && esDeRestaurante('villafit', pushName, senderNumber) && hasImage) {
         await sock.sendMessage(jid,{text:"Yo"},{quoted:msg}); return;
       }
-      if (nombreGrupo.includes("Veloces 2") && RESTAURANTES.saboria.activo && esDe('saboria') && text.includes("saboria")) {
+      if (nombreGrupo.includes("Veloces 2") && RESTAURANTES.saboria.activo && esDeRestaurante('saboria', pushName, senderNumber) && text.includes("saboria")) {
         if (new Date().getDay() === 0) return;
         await sock.sendMessage(jid,{text:"Yo"},{quoted:msg}); return;
       }
-      if (nombreGrupo.includes("Veloces 5") && RESTAURANTES.roll.activo && esDe('roll') && text.includes("av. de la marina 432")) {
+      if (nombreGrupo.includes("Veloces 5") && RESTAURANTES.roll.activo && esDeRestaurante('roll', pushName, senderNumber) && text.includes("av. de la marina 432")) {
         await sock.sendMessage(jid,{text:"Yo"},{quoted:msg}); return;
       }
-      if (nombreGrupo.includes("Veloces 2") && RESTAURANTES.carretita.activo && esDe('carretita') && text.includes("tacos la carretita")) {
+      if (nombreGrupo.includes("Veloces 2") && RESTAURANTES.carretita.activo && esDeRestaurante('carretita', pushName, senderNumber) && text.includes("tacos la carretita")) {
         await sock.sendMessage(jid,{text:"Yo"},{quoted:msg}); return;
       }
-      if (nombreGrupo.includes("MAZ SALADS TOREO") && RESTAURANTES.maz.activo && esDe('maz')) {
+      if (nombreGrupo.includes("MAZ SALADS TOREO") && RESTAURANTES.maz.activo && esDeRestaurante('maz', pushName, senderNumber)) {
         await sock.sendMessage(jid,{text:"Yo"},{quoted:msg}); return;
       }
-      if (nombreGrupo.includes("Al Dente Pedidos") && RESTAURANTES.aldente.activo && esDe('aldente') && ["quete","quette","muralla","saljo","saljoo","sajo","sajoo","olla"].some(k=>text.includes(k))) {
+      if (nombreGrupo.includes("Al Dente Pedidos") && RESTAURANTES.aldente.activo && esDeRestaurante('aldente', pushName, senderNumber) && ["quete","quette","muralla","saljo","saljoo","sajo","sajoo","olla"].some(k=>text.includes(k))) {
         await sock.sendMessage(jid,{text:"Yo"},{quoted:msg}); return;
       }
     } catch(e) {
@@ -147,11 +186,14 @@ async function startBot() {
 
 app.get('/', (req,res) => {
   let botones = Object.keys(RESTAURANTES).map(k => `<div style="margin:8px;padding:10px;border:1px solid #ccc"><b>${RESTAURANTES[k].nombre}</b> - ${RESTAURANTES[k].grupo} - ${RESTAURANTES[k].activo?'ON':'OFF'} <a href="/toggle/${k}"><button>${RESTAURANTES[k].activo?'APAGAR':'PRENDER'}</button></a></div>`).join('');
-  res.send(`<html><body><h2>MANDADITOS BOT - V4</h2><h1 style="background:black;color:lime;padding:20px;">${pairingCode}</h1><form action="/pair"><input name="number" value="${lastNumber}"><button>GENERAR CLAVE</button></form> <a href="/reset"><button style="background:red;color:white;padding:10px;">RESET</button></a><hr><h3>6 SAGRADOS</h3>${botones}</body></html>`);
+  res.send(`<html><body><h2>MANDADITOS BOT - V5</h2><h1 style="background:black;color:lime;padding:20px;">${pairingCode}</h1><form action="/pair"><input name="number" value="${lastNumber}"><button>GENERAR CLAVE</button></form> <a href="/reset"><button style="background:red;color:white;padding:10px;">RESET</button></a><hr><h3>6 SAGRADOS (los cambios se guardan permanentemente)</h3>${botones}</body></html>`);
 });
 
 app.get('/toggle/:id', (req,res)=>{
-  if(RESTAURANTES[req.params.id]) RESTAURANTES[req.params.id].activo = !RESTAURANTES[req.params.id].activo;
+  if(RESTAURANTES[req.params.id]) {
+    RESTAURANTES[req.params.id].activo = !RESTAURANTES[req.params.id].activo;
+    guardarActivos();
+  }
   res.redirect('/');
 });
 
