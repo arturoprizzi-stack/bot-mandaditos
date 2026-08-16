@@ -9,7 +9,7 @@ let sock;
 let pairingCode = "DALE A GENERAR CLAVE ABAJO";
 let lastNumber = "526695456822";
 
-// MEMORIA SAGRADA - 6 REALES
+// MEMORIA SAGRADA - 6 REALES - NO BORRAR
 const RESTAURANTES = {
   villafit: { nombre: "VILLAFIT", contactos: ["VILLAFIT","VILLAFIT2"], grupo: "Veloces 2", activo: true, soloFotos: true },
   saboria: { nombre: "MENUDO DOÑA LUPE SABORIA", contactos: ["MENUDO*SANCHEZ","MENUDO*SANCHEZ2"], grupo: "Veloces 2", activo: true, soloDomingo: true },
@@ -27,7 +27,7 @@ async function startBot() {
   sock = makeWASocket({
     version,
     auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, P().child({ level: "fatal" })) },
-    browser: ["Windows", "Chrome", "124.0.6367.118"],
+    browser: ["Ubuntu", "Chrome", "22.04.0"], // TRUCO MEXICO - NO BORRAR NUNCA
     syncFullHistory: false,
     markOnlineOnConnect: false,
     logger: P({ level: "silent" }),
@@ -60,45 +60,55 @@ async function startBot() {
       const pushName = (msg.pushName || "").toUpperCase();
       const hasImage =!!msg.message.imageMessage;
 
-      // PRIVADO: No contesta el bot, contestas tú personalmente
+      // TODO LO DEMAS ES WHATSAPP NORMAL - TU CONTESTAS
       if (!jid.endsWith('@g.us')) return;
+      if (msg.message.extendedTextMessage?.contextInfo?.mentionedJid?.length) return;
 
-      // GRUPOS: Solo si es grupo sagrado y contacto sagrado
       let nombreGrupo = gruposCache[jid];
       if (!nombreGrupo) {
         try { const md = await sock.groupMetadata(jid); nombreGrupo = md.subject; gruposCache[jid] = nombreGrupo; } catch(e){ return; }
       }
 
-      if (nombreGrupo.includes("Veloces 2") && RESTAURANTES.villafit.contactos.some(c => pushName.includes(c)) && hasImage) {
+      if (nombreGrupo.includes("Veloces 2") && RESTAURANTES.villafit.activo && RESTAURANTES.villafit.contactos.some(c => pushName.includes(c)) && hasImage) {
         await sock.sendMessage(jid, { text: "Yo" }, { quoted: msg }); return;
       }
-      if (nombreGrupo.includes("Veloces 2") && RESTAURANTES.saboria.contactos.some(c => pushName.includes(c)) && text.includes("saboria")) {
+      if (nombreGrupo.includes("Veloces 2") && RESTAURANTES.saboria.activo && RESTAURANTES.saboria.contactos.some(c => pushName.includes(c)) && text.includes("saboria")) {
         if (new Date().getDay()!== 0) return;
         await sock.sendMessage(jid, { text: "Yo" }, { quoted: msg }); return;
       }
-      if (nombreGrupo.includes("Veloces 5") && RESTAURANTES.roll.contactos.some(c => pushName.includes(c)) && text.includes("av. de la marina 432")) {
+      if (nombreGrupo.includes("Veloces 5") && RESTAURANTES.roll.activo && RESTAURANTES.roll.contactos.some(c => pushName.includes(c)) && text.includes("av. de la marina 432")) {
         await sock.sendMessage(jid, { text: "Yo" }, { quoted: msg }); return;
       }
-      if (nombreGrupo.includes("Veloces 2") && RESTAURANTES.carretita.contactos.some(c => pushName.includes(c)) && text.includes("tacos la carretita")) {
+      if (nombreGrupo.includes("Veloces 2") && RESTAURANTES.carretita.activo && RESTAURANTES.carretita.contactos.some(c => pushName.includes(c)) && text.includes("tacos la carretita")) {
         await sock.sendMessage(jid, { text: "Yo" }, { quoted: msg }); return;
       }
-      if (nombreGrupo.includes("MAZ SALADS TOREO") && RESTAURANTES.maz.contactos.some(c => pushName.includes(c))) {
+      if (nombreGrupo.includes("MAZ SALADS TOREO") && RESTAURANTES.maz.activo && RESTAURANTES.maz.contactos.some(c => pushName.includes(c))) {
         await sock.sendMessage(jid, { text: "Yo" }, { quoted: msg }); return;
       }
-      if (nombreGrupo.includes("Al Dente Pedidos") && RESTAURANTES.aldente.contactos.some(c => pushName.includes(c)) && ["quete","quette","muralla","saljo","saljoo","sajo","sajoo","olla"].some(k => text.includes(k))) {
+      if (nombreGrupo.includes("Al Dente Pedidos") && RESTAURANTES.aldente.activo && RESTAURANTES.aldente.contactos.some(c => pushName.includes(c)) && ["quete","quette","muralla","saljo","saljoo","sajo","sajoo","olla"].some(k => text.includes(k))) {
         await sock.sendMessage(jid, { text: "Yo" }, { quoted: msg }); return;
       }
-      // Si no es sagrado, no hace nada
 
     } catch(e){}
   });
 }
 
 app.get('/', (req, res) => {
+  let botones = Object.keys(RESTAURANTES).map(k => {
+    let r = RESTAURANTES[k];
+    return `<div style="margin:8px;padding:10px;border:1px solid #ccc"><b>${r.nombre}</b> - ${r.grupo} - ${r.activo? 'ON' : 'OFF'} <a href="/toggle/${k}"><button>${r.activo? 'APAGAR' : 'PRENDER'}</button></a></div>`;
+  }).join('');
   let html = `<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>
   <h2>MANDADITOS BOT</h2><h1 style="background:black;color:lime;padding:20px;">${pairingCode}</h1>
-  <form action="/pair"><input name="number" value="${lastNumber}"><button>GENERAR CLAVE</button></form></body></html>`;
+  <form action="/pair"><input name="number" value="${lastNumber}"><button>GENERAR CLAVE</button></form><hr><h3>6 SAGRADOS - Interruptores por restaurante</h3>${botones}
+  <p><small>TRUCO MEXICO: Ubuntu Chrome 22.04.0 + 52${lastNumber}</small></p>
+  </body></html>`;
   res.send(html);
+});
+
+app.get('/toggle/:id', (req, res) => {
+  if (RESTAURANTES[req.params.id]) RESTAURANTES[req.params.id].activo =!RESTAURANTES[req.params.id].activo;
+  res.redirect('/');
 });
 
 app.get('/pair', async (req, res) => {
