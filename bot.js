@@ -4,9 +4,32 @@ const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, makeCach
 const P = require('pino');
 const app = express();
 
+// ============ MANEJADORES GLOBALES DE ERRORES ============
+// Sin esto, si el proceso truena por una excepción no capturada,
+// Render lo reinicia en silencio y nunca sabes por qué.
+process.on('uncaughtException', (err) => {
+  console.error('!!! UNCAUGHT EXCEPTION !!!', err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('!!! UNHANDLED REJECTION !!!', reason);
+});
+
 let sock;
 let pairingCode = "DESCONECTADO - GENERA NUEVA CLAVE";
 let lastNumber = "526695456822";
+
+// ============ NÚMEROS DE CADA RESTAURANTE ============
+// Rellena aquí el número real de cada contacto (formato: 52XXXXXXXXXX@s.whatsapp.net)
+// Esto es más confiable que pushName, que es el nombre que ELLOS pusieron en su perfil,
+// no el que tú guardaste en tus contactos.
+const NUMEROS = {
+  villafit: ["", ""],      // VILLAFIT, VILLAFIT2
+  saboria: ["", ""],       // MENUDO*SANCHEZ, MENUDO*SANCHEZ2
+  roll: [""],              // ROLES*SANCHEZC
+  carretita: [""],         // TACOS*ESTADIO
+  maz: [""],                // BRENDASALADS
+  aldente: [""]              // ALDENTE
+};
 
 const RESTAURANTES = {
   villafit: { nombre: "VILLAFIT", contactos: ["VILLAFIT","VILLAFIT2"], grupo: "Veloces 2", activo: true },
@@ -27,11 +50,13 @@ async function startBot() {
     version,
     auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, P().child({ level: "fatal" })) },
     browser: ["Ubuntu", "Chrome", "22.04.0"],
-    syncFullHistory: true,
+    // Desactivado: no necesitas el historial completo para un bot en tiempo real,
+    // y sincronizarlo puede saturar el proceso al conectar.
+    syncFullHistory: false,
     markOnlineOnConnect: true,
     fireInitQueries: true,
-    shouldSyncHistoryMessage: () => true,
-    logger: P({ level: "silent" }),
+    shouldSyncHistoryMessage: () => false,
+    logger: P({ level: "warn" }), // antes "silent" - ahora sí vas a ver errores internos de Baileys
     getMessage: async () => undefined
   });
 
@@ -51,22 +76,26 @@ async function startBot() {
     }
     if (u.connection === 'close') {
       const code = u.lastDisconnect?.error?.output?.statusCode;
-      console.log("Desconectado", code);
+      console.log("Desconectado", code, u.lastDisconnect?.error?.message);
       pairingCode = "DESCONECTADO - GENERA NUEVA CLAVE";
-      if (code!== DisconnectReason.loggedOut) setTimeout(startBot, 2000);
+      if (code !== DisconnectReason.loggedOut) setTimeout(startBot, 2000);
     }
   });
 
   sock.ev.on('messages.upsert', async (m) => {
     try {
       const msg = m.messages[0];
-      if (!msg ||!msg.message) return;
+      if (!msg || !msg.message) return;
       if (msg.key.fromMe) return;
 
       const jid = msg.key.remoteJid;
+      // Para grupos, el número real del que manda el mensaje viene en "participant"
+      const senderJid = msg.key.participant || jid;
+      const senderNumber = senderJid.split('@')[0];
+
       const text = (msg.message.conversation || msg.message.extendedTextMessage?.text || msg.message.imageMessage?.caption || "").toLowerCase();
       const pushName = (msg.pushName || "SIN NOMBRE").toUpperCase();
-      const hasImage =!!msg.message.imageMessage;
+      const hasImage = !!msg.message.imageMessage;
 
       let nombreGrupo = "CHAT PRIVADO";
       if (jid.endsWith('@g.us')) {
@@ -80,27 +109,34 @@ async function startBot() {
         }
       }
 
-      console.log(`[RECIBIDO] ${nombreGrupo} | De:${pushName} | Texto:${text.substring(0,80)}`);
+      console.log(`[RECIBIDO] ${nombreGrupo} | De:${pushName} (${senderNumber}) | Texto:${text.substring(0,80)}`);
 
       if (!jid.endsWith('@g.us')) return;
 
-      if (nombreGrupo.includes("Veloces 2") && RESTAURANTES.villafit.activo && RESTAURANTES.villafit.contactos.some(c=>pushName.includes(c)) && hasImage) {
+      // Coincidencia por número si ya lo llenaste en NUMEROS, si no, cae de regreso a pushName
+      const esDe = (key) => {
+        const nums = NUMEROS[key] || [];
+        if (nums.some(n => n && senderNumber === n)) return true;
+        return RESTAURANTES[key].contactos.some(c => pushName.includes(c));
+      };
+
+      if (nombreGrupo.includes("Veloces 2") && RESTAURANTES.villafit.activo && esDe('villafit') && hasImage) {
         await sock.sendMessage(jid,{text:"Yo"},{quoted:msg}); return;
       }
-      if (nombreGrupo.includes("Veloces 2") && RESTAURANTES.saboria.activo && RESTAURANTES.saboria.contactos.some(c=>pushName.includes(c)) && text.includes("saboria")) {
+      if (nombreGrupo.includes("Veloces 2") && RESTAURANTES.saboria.activo && esDe('saboria') && text.includes("saboria")) {
         if (new Date().getDay() === 0) return;
         await sock.sendMessage(jid,{text:"Yo"},{quoted:msg}); return;
       }
-      if (nombreGrupo.includes("Veloces 5") && RESTAURANTES.roll.activo && RESTAURANTES.roll.contactos.some(c=>pushName.includes(c)) && text.includes("av. de la marina 432")) {
+      if (nombreGrupo.includes("Veloces 5") && RESTAURANTES.roll.activo && esDe('roll') && text.includes("av. de la marina 432")) {
         await sock.sendMessage(jid,{text:"Yo"},{quoted:msg}); return;
       }
-      if (nombreGrupo.includes("Veloces 2") && RESTAURANTES.carretita.activo && RESTAURANTES.carretita.contactos.some(c=>pushName.includes(c)) && text.includes("tacos la carretita")) {
+      if (nombreGrupo.includes("Veloces 2") && RESTAURANTES.carretita.activo && esDe('carretita') && text.includes("tacos la carretita")) {
         await sock.sendMessage(jid,{text:"Yo"},{quoted:msg}); return;
       }
-      if (nombreGrupo.includes("MAZ SALADS TOREO") && RESTAURANTES.maz.activo && RESTAURANTES.maz.contactos.some(c=>pushName.includes(c))) {
+      if (nombreGrupo.includes("MAZ SALADS TOREO") && RESTAURANTES.maz.activo && esDe('maz')) {
         await sock.sendMessage(jid,{text:"Yo"},{quoted:msg}); return;
       }
-      if (nombreGrupo.includes("Al Dente Pedidos") && RESTAURANTES.aldente.activo && RESTAURANTES.aldente.contactos.some(c=>pushName.includes(c)) && ["quete","quette","muralla","saljo","saljoo","sajo","sajoo","olla"].some(k=>text.includes(k))) {
+      if (nombreGrupo.includes("Al Dente Pedidos") && RESTAURANTES.aldente.activo && esDe('aldente') && ["quete","quette","muralla","saljo","saljoo","sajo","sajoo","olla"].some(k=>text.includes(k))) {
         await sock.sendMessage(jid,{text:"Yo"},{quoted:msg}); return;
       }
     } catch(e) {
@@ -115,7 +151,7 @@ app.get('/', (req,res) => {
 });
 
 app.get('/toggle/:id', (req,res)=>{
-  if(RESTAURANTES[req.params.id]) RESTAURANTES[req.params.id].activo =!RESTAURANTES[req.params.id].activo;
+  if(RESTAURANTES[req.params.id]) RESTAURANTES[req.params.id].activo = !RESTAURANTES[req.params.id].activo;
   res.redirect('/');
 });
 
