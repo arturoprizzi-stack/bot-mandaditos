@@ -40,14 +40,13 @@ async function startBot() {
   sock.ev.on('connection.update', async (u) => {
     if (u.connection === 'open') {
       pairingCode = "CONECTADO - BOT RECIBIENDO MENSAJES";
-      console.log("BOT CONECTADO - CARGANDO GRUPOS");
+      console.log("BOT CONECTADO");
       try {
         const all = await sock.groupFetchAllParticipating();
         for (let j in all) gruposCache[j] = all[j].subject;
         console.log("Grupos cargados:", Object.keys(all).length);
-        console.log(Object.values(gruposCache).join(" | "));
       } catch(e) {
-        console.log("Error cargando grupos", e);
+        console.log("Error grupos", e.message);
       }
     }
     if (u.connection === 'close') {
@@ -60,37 +59,37 @@ async function startBot() {
 
   sock.ev.on('messages.upsert', async (m) => {
     try {
-      if (m.type!== 'notify' && m.type!== 'append') return;
       const msg = m.messages[0];
-      if (!msg.message || msg.key.fromMe) return;
-      const jid = msg.key.remoteJid;
-      if (!jid.endsWith('@g.us')) return;
+      if (!msg ||!msg.message) return;
+      if (msg.key.fromMe) return;
 
+      const jid = msg.key.remoteJid;
       const text = (msg.message.conversation || msg.message.extendedTextMessage?.text || msg.message.imageMessage?.caption || "").toLowerCase();
-      const pushName = (msg.pushName || "").toUpperCase();
+      const pushName = (msg.pushName || "SIN NOMBRE").toUpperCase();
       const hasImage =!!msg.message.imageMessage;
 
-      let nombreGrupo = gruposCache[jid];
-      if (!nombreGrupo) {
-        try {
-          const md = await sock.groupMetadata(jid);
-          nombreGrupo = md.subject;
-          gruposCache[jid] = nombreGrupo;
-        } catch(e) { return; }
+      let nombreGrupo = "CHAT PRIVADO";
+      if (jid.endsWith('@g.us')) {
+        nombreGrupo = gruposCache[jid] || "GRUPO";
+        if (nombreGrupo === "GRUPO") {
+          try {
+            const md = await sock.groupMetadata(jid);
+            nombreGrupo = md.subject;
+            gruposCache[jid] = nombreGrupo;
+          } catch(e) {}
+        }
       }
 
-      console.log(`[MENSAJE] Grupo:${nombreGrupo} | De:${pushName} | Texto:${text.substring(0,60)} | Imagen:${hasImage}`);
+      console.log(`[RECIBIDO] ${nombreGrupo} | De:${pushName} | Texto:${text.substring(0,80)}`);
+
+      if (!jid.endsWith('@g.us')) return;
 
       if (nombreGrupo.includes("Veloces 2") && RESTAURANTES.villafit.activo && RESTAURANTES.villafit.contactos.some(c=>pushName.includes(c)) && hasImage) {
-        await sock.sendMessage(jid,{text:"Yo"},{quoted:msg});
-        console.log("=> Respondio VILLAFIT");
-        return;
+        await sock.sendMessage(jid,{text:"Yo"},{quoted:msg}); return;
       }
       if (nombreGrupo.includes("Veloces 2") && RESTAURANTES.saboria.activo && RESTAURANTES.saboria.contactos.some(c=>pushName.includes(c)) && text.includes("saboria")) {
         if (new Date().getDay() === 0) return;
-        await sock.sendMessage(jid,{text:"Yo"},{quoted:msg});
-        console.log("=> Respondio SABORIA");
-        return;
+        await sock.sendMessage(jid,{text:"Yo"},{quoted:msg}); return;
       }
       if (nombreGrupo.includes("Veloces 5") && RESTAURANTES.roll.activo && RESTAURANTES.roll.contactos.some(c=>pushName.includes(c)) && text.includes("av. de la marina 432")) {
         await sock.sendMessage(jid,{text:"Yo"},{quoted:msg}); return;
@@ -112,7 +111,7 @@ async function startBot() {
 
 app.get('/', (req,res) => {
   let botones = Object.keys(RESTAURANTES).map(k => `<div style="margin:8px;padding:10px;border:1px solid #ccc"><b>${RESTAURANTES[k].nombre}</b> - ${RESTAURANTES[k].grupo} - ${RESTAURANTES[k].activo?'ON':'OFF'} <a href="/toggle/${k}"><button>${RESTAURANTES[k].activo?'APAGAR':'PRENDER'}</button></a></div>`).join('');
-  res.send(`<html><body><h2>MANDADITOS BOT - V3 FIX MENSAJES</h2><h1 style="background:black;color:lime;padding:20px;">${pairingCode}</h1><form action="/pair"><input name="number" value="${lastNumber}"><button>GENERAR CLAVE</button></form> <a href="/reset"><button style="background:red;color:white;padding:10px;">RESET SESION (si marca ERROR)</button></a><hr><h3>6 SAGRADOS - Interruptores</h3>${botones}<p>FIX: syncFullHistory true + notify</p></body></html>`);
+  res.send(`<html><body><h2>MANDADITOS BOT - V4</h2><h1 style="background:black;color:lime;padding:20px;">${pairingCode}</h1><form action="/pair"><input name="number" value="${lastNumber}"><button>GENERAR CLAVE</button></form> <a href="/reset"><button style="background:red;color:white;padding:10px;">RESET</button></a><hr><h3>6 SAGRADOS</h3>${botones}</body></html>`);
 });
 
 app.get('/toggle/:id', (req,res)=>{
@@ -123,7 +122,7 @@ app.get('/toggle/:id', (req,res)=>{
 app.get('/reset', async (req,res)=>{
   try{ if(sock) sock.end(); }catch(e){}
   try{ fs.rmSync('./auth_info',{recursive:true,force:true}); }catch(e){}
-  pairingCode="SESION BORRADA - GENERA CLAVE NUEVA";
+  pairingCode="SESION BORRADA";
   setTimeout(startBot,1000);
   res.redirect('/');
 });
@@ -136,10 +135,8 @@ app.get('/pair', async (req,res)=>{
     if(!sock) await startBot();
     await new Promise(r=>setTimeout(r,1500));
     pairingCode=await sock.requestPairingCode(num);
-    console.log("CLAVE GENERADA:", pairingCode);
   }catch(e){
     pairingCode="ERROR: "+e.message;
-    console.log("Error pairing", e.message);
   }
   res.redirect('/');
 });
