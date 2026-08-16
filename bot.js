@@ -1,101 +1,142 @@
-const { Client, LocalAuth } = require('whatsapp-web.js');
-const qrcode = require('qrcode');
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
 const fs = require('fs');
 const path = require('path');
+const express = require('express');
+const P = require('pino');
 
-// --- CONEXION CON EL PANEL NUEVO ---
+const app = express();
+const PORT = process.env.PORT || 10000;
+
+// --- NUMERO DEL BOT - SIN +, SIN ESPACIOS ---
+// Ejemplo: 5216691234567 (52 + 1 + tu numero)
+const BOT_NUMBER = "521669XXXXXXX"; // <<< CAMBIA AQUI TU NUMERO REAL
+
 function getConfig() {
   try {
-    const configPath = path.join(__dirname, 'config.json');
-    if (fs.existsSync(configPath)) {
-      return JSON.parse(fs.readFileSync(configPath, 'utf8'));
-    }
-  } catch (e) {
-    console.log("No hay config.json aun, usando todo prendido");
-  }
+    const p = path.join(__dirname, 'config.json');
+    if (fs.existsSync(p)) return JSON.parse(fs.readFileSync(p, 'utf8'));
+  } catch {}
   return { villafit: true, menudo: true, roll: true, carretita: true, maz: true, aldente: true };
 }
 
-// --- LOGICA FINAL POR RESTAURANTE ---
 function debeDecirYo(msg, config) {
   const grupo = msg.grupo;
   const contacto = msg.contacto;
-  const texto = (msg.texto || "");
+  const texto = msg.texto || "";
   const esFoto = msg.hasImage;
   const tLower = texto.toLowerCase();
   const tUpper = texto.toUpperCase();
 
-  if (grupo === "Veloces 2" && ["VILLAFIT","VILLAFIT2"].includes(contacto)) {
+  if (grupo.includes("Veloces 2") && ["VILLAFIT","VILLAFIT2"].includes(contacto)) {
     if (config.villafit && esFoto) return true;
     return false;
   }
-  if (grupo === "Veloces 2" && ["MENUDO*SANCHEZ","MENUDO*SANCHEZ2"].includes(contacto)) {
+  if (grupo.includes("Veloces 2") && contacto.includes("MENUDO")) {
     if (config.menudo && tUpper.includes("SABORIA")) {
-      const hoy = new Date().getDay();
-      if (hoy === 0) return true; // Solo domingos
+      if (new Date().getDay() === 0) return true;
     }
   }
-  if (grupo === "Veloces 5" && contacto === "ROLES*SANCHEZC") {
+  if (grupo.includes("Veloces 5") && contacto.includes("ROLES")) {
     if (config.roll && texto.includes("Av. de la Marina 432")) return true;
   }
-  if (grupo === "Veloces 2" && contacto === "TACOS*ESTADIO") {
+  if (grupo.includes("Veloces 2") && contacto.includes("TACOS")) {
     if (config.carretita && tLower.includes("tacos la carretita")) return true;
   }
-  if (grupo === "MAZ SALADS TOREO" && contacto === "BRENDASALADS") {
+  if (grupo.includes("MAZ SALADS") && contacto.includes("BRENDA")) {
     if (config.maz) return true;
   }
-  if (grupo === "Al Dente Pedidos" && contacto === "ALDENTE") {
+  if (grupo.includes("Al Dente") && contacto.includes("ALDENTE")) {
     const claves = ["quete","quette","muralla","saljo","saljoo","sajo","sajoo","olla"];
     if (config.aldente && claves.some(k => tLower.includes(k))) return true;
   }
   return false;
 }
 
-const client = new Client({
-  authStrategy: new LocalAuth(),
-  puppeteer: { args: ['--no-sandbox', '--disable-setuid-sandbox'] }
-});
+let pairingCodeGlobal = "";
 
-client.on('qr', async (qr) => {
-  await qrcode.toFile(path.join(__dirname, 'qr.png'), qr);
-  console.log('QR generado en qr.png');
-});
+async function startBot() {
+  const { state, saveCreds } = await useMultiFileAuthState(path.join(__dirname, 'auth_info'));
 
-client.on('ready', () => {
-  console.log('BOT LISTO');
-});
+  const sock = makeWASocket({
+    auth: state,
+    logger: P({ level: 'silent' }),
+    printQRInTerminal: false,
+    browser: ["Mandaditos", "Chrome", "1.0"]
+  });
 
-client.on('message', async (msg) => {
-  try {
-    const chat = await msg.getChat();
-    if (!chat.isGroup) return;
+  sock.ev.on('creds.update', saveCreds);
 
-    const config = getConfig();
-    const chatName = chat.name;
-    const author = msg.author || "";
-    const contact = await msg.getContact();
-    const notifyName = contact.pushname || contact.name || "";
-
-    // Normalizamos para tu logica
-    const mensajeParaLogica = {
-      grupo: chatName,
-      contacto: notifyName.toUpperCase(),
-      texto: msg.body || "",
-      hasImage: msg.hasMedia
-    };
-
-    // También checamos por ID por si el nombre cambia
-    if (author.includes("MENUDO") || notifyName.toUpperCase().includes("MENUDO")) mensajeParaLogica.contacto = "MENUDO*SANCHEZ";
-    if (notifyName === "VILLAFIT" || notifyName === "VILLAFIT2") mensajeParaLogica.contacto = notifyName;
-
-    if (debeDecirYo(mensajeParaLogica, config)) {
-      await chat.sendMessage("Yo");
-      console.log(`YO -> ${chatName} | ${mensajeParaLogica.contacto} | ${mensajeParaLogica.texto.substring(0,60)}`);
-    }
-
-  } catch (e) {
-    console.log("Error msg:", e.message);
+  // Si no está registrado, pide codigo por numero
+  if (!state.creds.registered) {
+    setTimeout(async () => {
+      try {
+        const code = await sock.requestPairingCode(BOT_NUMBER);
+        pairingCodeGlobal = code;
+        console.log(`\n\n================= CODIGO PARA VINCULAR =================`);
+        console.log(`NUMERO: ${BOT_NUMBER}`);
+        console.log(`CODIGO: ${code}`);
+        console.log(`Ve a WhatsApp del BOT > Ajustes > Dispositivos vinculados > Vincular con numero de telefono`);
+        console.log(`================================================================\n\n`);
+      } catch (e) {
+        console.log("Error pidiendo pairing code:", e.message);
+      }
+    }, 3000);
   }
+
+  sock.ev.on('connection.update', (update) => {
+    const { connection, lastDisconnect } = update;
+    if (connection === 'close') {
+      const shouldReconnect = lastDisconnect?.error?.output?.statusCode!== DisconnectReason.loggedOut;
+      console.log('Conexion cerrada, reconectando:', shouldReconnect);
+      if (shouldReconnect) startBot();
+    } else if (connection === 'open') {
+      console.log('BOT LISTO Y CONECTADO - MANDADITOS');
+      pairingCodeGlobal = "";
+    }
+  });
+
+  sock.ev.on('messages.upsert', async ({ messages }) => {
+    try {
+      const msg = messages[0];
+      if (!msg.message || msg.key.fromMe) return;
+
+      const remoteJid = msg.key.remoteJid;
+      if (!remoteJid.includes('@g.us')) return; // solo grupos
+
+      const groupMetadata = await sock.groupMetadata(remoteJid).catch(()=>null);
+      const groupName = groupMetadata?.subject || remoteJid;
+
+      const pushName = msg.pushName || "";
+      const text = msg.message.conversation || msg.message.extendedTextMessage?.text || msg.message.imageMessage?.caption || "";
+      const hasImage =!!msg.message.imageMessage;
+
+      const paraLogica = {
+        grupo: groupName,
+        contacto: pushName.toUpperCase(),
+        texto: text,
+        hasImage: hasImage
+      };
+
+      const config = getConfig();
+      if (debeDecirYo(paraLogica, config)) {
+        await sock.sendMessage(remoteJid, { text: "Yo" });
+        console.log(`YO -> ${groupName} | ${pushName} | ${text.substring(0,50)}`);
+      }
+    } catch (e) {
+      console.log("Error mensaje:", e.message);
+    }
+  });
+}
+
+app.get('/', (req, res) => {
+  res.send(`
+    <html><body style="font-family:sans-serif; text-align:center; padding-top:50px;">
+      <h1>Bot Mandaditos</h1>
+      ${pairingCodeGlobal? `<h1 style="font-size:60px; letter-spacing:12px; color:#128C7E;">${pairingCodeGlobal.match(/.{1,4}/g).join('-')}</h1><p>Copia este codigo en tu WhatsApp del BOT:<br><b>Ajustes > Dispositivos vinculados > Vincular con numero</b></p>` : `<p>Bot Conectado o Esperando... Revisa los Logs en Render</p><p>Si no sale codigo, borra la carpeta auth_info en Render y haz redeploy</p>`}
+      <br><a href="/">Actualizar</a>
+    </body></html>
+  `);
 });
 
-client.initialize();
+app.listen(PORT, () => console.log(`Web en ${PORT}`));
+startBot();
