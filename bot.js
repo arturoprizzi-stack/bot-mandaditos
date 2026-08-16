@@ -9,7 +9,7 @@ const PORT = process.env.PORT || 10000;
 
 // --- NUMERO DEL BOT - SIN +, SIN ESPACIOS ---
 // Ejemplo: 5216691234567 (52 + 1 + tu numero)
-const BOT_NUMBER = "521669XXXXXXX"; // <<< CAMBIA AQUI TU NUMERO REAL
+const BOT_NUMBER = "5216695456822"; // <<< CAMBIA AQUI TU NUMERO REAL
 
 function getConfig() {
   try {
