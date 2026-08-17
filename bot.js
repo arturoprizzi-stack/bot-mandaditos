@@ -21,7 +21,7 @@ let modoSilencioso = false; // true = detecta y registra en log, pero NUNCA mand
 // ============ NORMALIZACIÓN (quita acentos, pasa a mayúsculas) ============
 // Así "Sabo­ría", "SABORIA", "saboria" y "SaBoRíA" se tratan como lo mismo.
 function norm(s) {
-  return (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+  return (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim().toUpperCase();
 }
 
 // ============ CONFIG PERSISTENTE (usa el mismo disco que auth_info) ============
