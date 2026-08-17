@@ -51,7 +51,7 @@ const RESTAURANTES = {
   villafit: {
     nombre: "VILLAFIT", grupo: "Veloces 2", activo: true,
     contactosNombre: ["VILLAFIT", "VILLAFIT2"],
-    numeros: ["526699128588", "526691220281"]
+    numeros: ["526699128588", "526691220281", "526678279465"] // último es número de PRUEBA, quitar después
   },
   saboria: {
     nombre: "MENUDO DOÑA LUPE SABORIA", grupo: "Veloces 2", activo: true,
