@@ -15,7 +15,7 @@ Solucion que funciono hace 12h y hoy:
 Si borras esto, vuelve a fallar.
 
 -----PARA SABER EL LID DE UN TELEFONO CELULAR------
-https://bot-mandaditos.onrender.com/buscar?numero
+https://bot-mandaditos.onrender.com/buscar?numero=NUMERO
 
 
 --- CUÁNDO USAR EL BOTÓN "RESET" DEL PANEL ---
