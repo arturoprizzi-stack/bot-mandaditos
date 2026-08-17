@@ -51,7 +51,7 @@ const RESTAURANTES = {
   villafit: {
     nombre: "VILLAFIT", grupo: "Veloces 2", activo: true,
     contactosNombre: ["VILLAFIT", "VILLAFIT2"],
-    numeros: ["526699128588", "526691220281", "526678279465"] // último es número de PRUEBA, quitar después
+    numeros: ["526699128588", "526691220281", "139372007534721"] // último es identificador de PRUEBA (LID), quitar después
   },
   saboria: {
     nombre: "MENUDO DOÑA LUPE SABORIA", grupo: "Veloces 2", activo: true,
@@ -182,23 +182,23 @@ async function startBot() {
       if (!jid.endsWith('@g.us')) return;
 
       if (grupoNorm.includes(norm("Veloces 2")) && RESTAURANTES.villafit.activo && esDeRestaurante('villafit', pushName, senderNumber) && hasImage) {
-        await sock.sendMessage(jid,{text:"Yo"},{quoted:msg}); return;
+        console.log(`[YO ENVIADO] VILLAFIT en ${nombreGrupo}`); await sock.sendMessage(jid,{text:"Yo"},{quoted:msg}); return;
       }
       if (grupoNorm.includes(norm("Veloces 2")) && RESTAURANTES.saboria.activo && esDeRestaurante('saboria', pushName, senderNumber) && textoContieneAlguna(textNorm,'saboria')) {
         if (new Date().getDay() !== 0) return; // Saboria SOLO trabaja domingos
-        await sock.sendMessage(jid,{text:"Yo"},{quoted:msg}); return;
+        console.log(`[YO ENVIADO] SABORIA en ${nombreGrupo}`); await sock.sendMessage(jid,{text:"Yo"},{quoted:msg}); return;
       }
       if (grupoNorm.includes(norm("Veloces 5")) && RESTAURANTES.roll.activo && esDeRestaurante('roll', pushName, senderNumber) && textoContieneAlguna(textNorm,'roll')) {
-        await sock.sendMessage(jid,{text:"Yo"},{quoted:msg}); return;
+        console.log(`[YO ENVIADO] ROLL en ${nombreGrupo}`); await sock.sendMessage(jid,{text:"Yo"},{quoted:msg}); return;
       }
       if (grupoNorm.includes(norm("Veloces 2")) && RESTAURANTES.carretita.activo && esDeRestaurante('carretita', pushName, senderNumber) && textoContieneAlguna(textNorm,'carretita')) {
-        await sock.sendMessage(jid,{text:"Yo"},{quoted:msg}); return;
+        console.log(`[YO ENVIADO] CARRETITA en ${nombreGrupo}`); await sock.sendMessage(jid,{text:"Yo"},{quoted:msg}); return;
       }
       if (grupoNorm.includes(norm("MAZ SALADS TOREO")) && RESTAURANTES.maz.activo && esDeRestaurante('maz', pushName, senderNumber)) {
-        await sock.sendMessage(jid,{text:"Yo"},{quoted:msg}); return;
+        console.log(`[YO ENVIADO] MAZ en ${nombreGrupo}`); await sock.sendMessage(jid,{text:"Yo"},{quoted:msg}); return;
       }
       if (grupoNorm.includes(norm("Al Dente Pedidos")) && RESTAURANTES.aldente.activo && esDeRestaurante('aldente', pushName, senderNumber) && textoContieneAlguna(textNorm,'aldente')) {
-        await sock.sendMessage(jid,{text:"Yo"},{quoted:msg}); return;
+        console.log(`[YO ENVIADO] ALDENTE en ${nombreGrupo}`); await sock.sendMessage(jid,{text:"Yo"},{quoted:msg}); return;
       }
     } catch(e) {
       console.log("Error mensaje", e);
