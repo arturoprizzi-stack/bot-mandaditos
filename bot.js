@@ -98,7 +98,7 @@ const KEYWORDS = {
   carretita: ["tacos la carretita"],
   aldente: ["quete","quette","muralla","saljo","saljoo","sajo","sajoo","olla","que te late","que te latte"],
   tacosalex: ["tacos alex"],
-  quesera: ["quesera","qesera","queseria","qseria","quecera","qecera","qsera","qcera","quesria"]
+  quesera: ["quesera","qesera","queseria","qseria","quecera","qecera","qsera","qcera","quesria","qeseria","qesria","qcseria"]
 };
 
 // Cargar estado guardado de ON/OFF (si existe) al arrancar
