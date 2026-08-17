@@ -16,3 +16,58 @@ Si borras esto, vuelve a fallar.
 
 -----PARA SABER EL LID DE UN TELEFONO CELULAR------
 https://bot-mandaditos.onrender.com/buscar?numero
+
+
+--- CUÁNDO USAR EL BOTÓN "RESET" DEL PANEL ---
+
+QUÉ HACE EXACTAMENTE:
+El botón RESET borra por completo la sesión de WhatsApp guardada (la carpeta
+auth_info) y reinicia el bot desde cero. Esto significa que el número del bot
+queda DESVINCULADO de WhatsApp — vas a tener que generar una clave nueva
+("GENERAR CLAVE") y volver a vincularlo desde la app de WhatsApp del número
+físico, exactamente como la primera vez.
+
+Es una acción fuerte, no un simple "refrescar". Úsalo solo cuando de verdad
+lo necesites.
+
+--- SÍ úsalo cuando: ---
+
+1) El panel lleva bastante rato (varios minutos) mostrando
+   "DESCONECTADO - GENERA NUEVA CLAVE" y no se reconecta solo, ni después
+   de esperar ni de hacer un redeploy normal.
+
+2) WhatsApp del número del bot muestra el dispositivo vinculado con errores
+   raros, o el bot recibe mensajes pero no puede mandar nada (y ya
+   descartaste que sea un problema del código).
+
+3) Vas a cambiar el bot a un número de teléfono distinto.
+
+4) Sospechas que la sesión guardada se corrompió (por ejemplo, después de
+   un cierre de sesión forzado desde el celular, o un "cerraste sesión en
+   todos los dispositivos" hecho sin querer).
+
+--- NO lo uses cuando: ---
+
+1) El bot se ve "desconectado" solo un instante justo después de subir un
+   cambio a GitHub — es normal, tarda unos segundos en reconectar solo.
+   Espera 30-60 segundos antes de asumir que algo está mal.
+
+2) Un restaurante no contestó como esperabas — eso casi siempre es un
+   tema de código (palabra clave, nombre de grupo, número/LID), no de la
+   sesión de WhatsApp. Revisar el log primero.
+
+3) "Por si las dudas" o de forma rutinaria — cada RESET implica generar
+   clave nueva y volver a vincular manualmente, es trabajo extra
+   innecesario si la sesión está sana.
+
+--- DESPUÉS DE UN RESET ---
+
+1) Espera unos segundos a que el panel diga "SESIÓN BORRADA".
+2) Escribe el número (formato 52 + 10 dígitos) y da clic en
+   "GENERAR CLAVE".
+3) Ingresa esa clave en el WhatsApp del número físico del bot
+   (Dispositivos vinculados > Vincular con número de teléfono).
+4) Espera a que diga "CONECTADO - BOT RECIBIENDO MENSAJES".
+5) Si el bot ya estaba en los grupos reales antes del reset, sigue
+   siendo miembro de ellos (eso no se pierde) — no hace falta
+   volver a agregarlo a los grupos.
