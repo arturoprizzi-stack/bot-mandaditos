@@ -121,7 +121,7 @@ async function responder(key, jid, msg, nombreGrupo) {
     return;
   }
   console.log(`[YO ENVIADO] ${nombre} en ${nombreGrupo}`);
-  await sock.sendMessage(jid, { text: "Yo" }, { quoted: msg });
+  await sock.sendMessage(jid, { text: "Yo" });
 }
 
 async function startBot() {
@@ -244,7 +244,7 @@ app.get('/silencioso', (req,res)=>{
 app.get('/buscar', async (req,res) => {
   const numero = (req.query.numero || '').replace(/[^0-9]/g,'');
   if (!numero) {
-    return res.send(`<html><body><h2>Buscar LID de un número</h2><form action="/buscar"><input name="numero" placeholder="Ej. 526699128588"><button>Buscar</button></form><p><a href="/">Volver</a></p></body></html>`);
+    return res.send(`<html><body><h2>Buscar LID de un número</h2><form action="/buscar"><input name="numero" placeholder="Ej. 526699128588"><button>Buscar</button></form><p><a href="/buscar-todos">Buscar todos los 9 números de golpe</a></p><p><a href="/">Volver</a></p></body></html>`);
   }
   try {
     if (!sock) return res.send("El bot no está conectado todavía.");
@@ -253,6 +253,30 @@ app.get('/buscar', async (req,res) => {
   } catch(e) {
     res.send(`<html><body><h2>Error</h2><pre>${e.message}</pre><p><a href="/buscar">Reintentar</a></p></body></html>`);
   }
+});
+
+app.get('/buscar-todos', async (req,res) => {
+  if (!sock) return res.send("El bot no está conectado todavía.");
+  const numerosAConsultar = [
+    ["villafit-1","526699128588"], ["villafit-2","526691220281"],
+    ["saboria-1","526691484113"], ["saboria-2","526691222437"],
+    ["roll","526691491778"],
+    ["carretita","526691172841"],
+    ["maz","526692514582"],
+    ["aldente-1","526692699876"], ["aldente-2 (ALDENTE3)","526691619067"], ["aldente-3 (IRVING)","526692705147"]
+  ];
+  let out = "<html><body><h2>LID de los 9 contactos</h2><pre>";
+  for (const [etiqueta, num] of numerosAConsultar) {
+    try {
+      const r = await sock.onWhatsApp(num);
+      const lid = r && r[0] ? r[0].lid : "NO ENCONTRADO";
+      out += `${etiqueta} (${num}) -> ${lid}\n`;
+    } catch(e) {
+      out += `${etiqueta} (${num}) -> ERROR: ${e.message}\n`;
+    }
+  }
+  out += "</pre><p><a href='/'>Volver</a></p></body></html>";
+  res.send(out);
 });
 
 app.get('/toggle/:id', (req,res)=>{
