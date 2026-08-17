@@ -143,6 +143,15 @@ async function startBot() {
 
   sock.ev.on('creds.update', saveCreds);
 
+  sock.ev.on('groups.update', (updates) => {
+    for (const u of updates) {
+      if (u.id && u.subject) {
+        console.log(`[GRUPO RENOMBRADO] ${gruposCache[u.id] || '(desconocido)'} -> ${u.subject}`);
+        gruposCache[u.id] = u.subject;
+      }
+    }
+  });
+
   sock.ev.on('connection.update', async (u) => {
     if (u.connection === 'open') {
       pairingCode = "CONECTADO - BOT RECIBIENDO MENSAJES";
