@@ -87,7 +87,7 @@ const KEYWORDS = {
   saboria: ["saboria"],
   roll: ["av. de la marina 432", "av de la marina 432"],
   carretita: ["tacos la carretita"],
-  aldente: ["quete","quette","muralla","saljo","saljoo","sajo","sajoo","olla"]
+  aldente: ["quete","quette","muralla","saljo","saljoo","sajo","sajoo","olla","que te late","que te latte"]
 };
 
 // Cargar estado guardado de ON/OFF (si existe) al arrancar
