@@ -16,6 +16,7 @@ process.on('unhandledRejection', (reason) => {
 let sock;
 let pairingCode = "DESCONECTADO - GENERA NUEVA CLAVE";
 let lastNumber = "526695456822";
+let modoSilencioso = false; // true = detecta y registra en log, pero NUNCA manda "Yo"
 
 // ============ NORMALIZACIÓN (quita acentos, pasa a mayúsculas) ============
 // Así "Sabo­ría", "SABORIA", "saboria" y "SaBoRíA" se tratan como lo mismo.
@@ -40,6 +41,7 @@ function guardarActivos() {
     fs.mkdirSync(path.dirname(CONFIG_PATH), { recursive: true });
     const activos = {};
     for (const k in RESTAURANTES) activos[k] = RESTAURANTES[k].activo;
+    activos.__modoSilencioso = modoSilencioso;
     fs.writeFileSync(CONFIG_PATH, JSON.stringify(activos, null, 2));
   } catch (e) { console.log("Error guardando config", e.message); }
 }
@@ -51,7 +53,7 @@ const RESTAURANTES = {
   villafit: {
     nombre: "VILLAFIT", grupo: "Veloces 2", activo: true,
     contactosNombre: ["VILLAFIT", "VILLAFIT2"],
-    numeros: ["526699128588", "526691220281", "139372007534721"] // último es identificador de PRUEBA (LID), quitar después
+    numeros: ["526699128588", "526691220281"]
   },
   saboria: {
     nombre: "MENUDO DOÑA LUPE SABORIA", grupo: "Veloces 2", activo: true,
@@ -66,7 +68,7 @@ const RESTAURANTES = {
   carretita: {
     nombre: "TACOS LA CARRETITA", grupo: "Veloces 2", activo: true,
     contactosNombre: ["TACOS*ESTADIO"],
-    numeros: ["526691172841"]
+    numeros: ["526691172841", "139372007534721"] // último es identificador de PRUEBA, quitar después
   },
   maz: {
     nombre: "MAZ SALADS", grupo: "MAZ SALADS TOREO", activo: true,
@@ -94,7 +96,8 @@ if (activosGuardados) {
   for (const k in RESTAURANTES) {
     if (typeof activosGuardados[k] === 'boolean') RESTAURANTES[k].activo = activosGuardados[k];
   }
-  console.log("Config de switches cargada desde disco");
+  if (typeof activosGuardados.__modoSilencioso === 'boolean') modoSilencioso = activosGuardados.__modoSilencioso;
+  console.log("Config de switches cargada desde disco. Modo silencioso:", modoSilencioso);
 }
 
 let gruposCache = {};
@@ -109,6 +112,16 @@ function esDeRestaurante(key, pushName, senderNumber) {
 function textoContieneAlguna(textNorm, key) {
   const lista = KEYWORDS[key] || [];
   return lista.some(k => textNorm.includes(norm(k)));
+}
+
+async function responder(key, jid, msg, nombreGrupo) {
+  const nombre = RESTAURANTES[key].nombre;
+  if (modoSilencioso) {
+    console.log(`[SIMULARIA YO] ${nombre} en ${nombreGrupo} (modo silencioso activo, no se envió nada)`);
+    return;
+  }
+  console.log(`[YO ENVIADO] ${nombre} en ${nombreGrupo}`);
+  await sock.sendMessage(jid, { text: "Yo" }, { quoted: msg });
 }
 
 async function startBot() {
@@ -159,10 +172,18 @@ async function startBot() {
       const senderJid = msg.key.participant || jid;
       const senderNumber = senderJid.split('@')[0];
 
-      const textoOriginal = msg.message.conversation || msg.message.extendedTextMessage?.text || msg.message.imageMessage?.caption || "";
+      // Desenvolver mensajes temporales / de una sola vista, que WhatsApp
+      // envuelve en un contenedor extra (por eso antes no se detectaba la imagen)
+      let contenido = msg.message;
+      if (contenido?.ephemeralMessage) contenido = contenido.ephemeralMessage.message;
+      if (contenido?.viewOnceMessage) contenido = contenido.viewOnceMessage.message;
+      if (contenido?.viewOnceMessageV2) contenido = contenido.viewOnceMessageV2.message;
+      if (contenido?.documentWithCaptionMessage) contenido = contenido.documentWithCaptionMessage.message;
+
+      const textoOriginal = contenido?.conversation || contenido?.extendedTextMessage?.text || contenido?.imageMessage?.caption || "";
       const textNorm = norm(textoOriginal);
       const pushName = msg.pushName || "SIN NOMBRE";
-      const hasImage = !!msg.message.imageMessage;
+      const hasImage = !!contenido?.imageMessage;
 
       let nombreGrupo = "CHAT PRIVADO";
       if (jid.endsWith('@g.us')) {
@@ -182,23 +203,23 @@ async function startBot() {
       if (!jid.endsWith('@g.us')) return;
 
       if (grupoNorm.includes(norm("Veloces 2")) && RESTAURANTES.villafit.activo && esDeRestaurante('villafit', pushName, senderNumber) && hasImage) {
-        console.log(`[YO ENVIADO] VILLAFIT en ${nombreGrupo}`); await sock.sendMessage(jid,{text:"Yo"},{quoted:msg}); return;
+        await responder('villafit', jid, msg, nombreGrupo); return;
       }
       if (grupoNorm.includes(norm("Veloces 2")) && RESTAURANTES.saboria.activo && esDeRestaurante('saboria', pushName, senderNumber) && textoContieneAlguna(textNorm,'saboria')) {
         if (new Date().getDay() !== 0) return; // Saboria SOLO trabaja domingos
-        console.log(`[YO ENVIADO] SABORIA en ${nombreGrupo}`); await sock.sendMessage(jid,{text:"Yo"},{quoted:msg}); return;
+        await responder('saboria', jid, msg, nombreGrupo); return;
       }
       if (grupoNorm.includes(norm("Veloces 5")) && RESTAURANTES.roll.activo && esDeRestaurante('roll', pushName, senderNumber) && textoContieneAlguna(textNorm,'roll')) {
-        console.log(`[YO ENVIADO] ROLL en ${nombreGrupo}`); await sock.sendMessage(jid,{text:"Yo"},{quoted:msg}); return;
+        await responder('roll', jid, msg, nombreGrupo); return;
       }
       if (grupoNorm.includes(norm("Veloces 2")) && RESTAURANTES.carretita.activo && esDeRestaurante('carretita', pushName, senderNumber) && textoContieneAlguna(textNorm,'carretita')) {
-        console.log(`[YO ENVIADO] CARRETITA en ${nombreGrupo}`); await sock.sendMessage(jid,{text:"Yo"},{quoted:msg}); return;
+        await responder('carretita', jid, msg, nombreGrupo); return;
       }
       if (grupoNorm.includes(norm("MAZ SALADS TOREO")) && RESTAURANTES.maz.activo && esDeRestaurante('maz', pushName, senderNumber)) {
-        console.log(`[YO ENVIADO] MAZ en ${nombreGrupo}`); await sock.sendMessage(jid,{text:"Yo"},{quoted:msg}); return;
+        await responder('maz', jid, msg, nombreGrupo); return;
       }
       if (grupoNorm.includes(norm("Al Dente Pedidos")) && RESTAURANTES.aldente.activo && esDeRestaurante('aldente', pushName, senderNumber) && textoContieneAlguna(textNorm,'aldente')) {
-        console.log(`[YO ENVIADO] ALDENTE en ${nombreGrupo}`); await sock.sendMessage(jid,{text:"Yo"},{quoted:msg}); return;
+        await responder('aldente', jid, msg, nombreGrupo); return;
       }
     } catch(e) {
       console.log("Error mensaje", e);
@@ -208,7 +229,30 @@ async function startBot() {
 
 app.get('/', (req,res) => {
   let botones = Object.keys(RESTAURANTES).map(k => `<div style="margin:8px;padding:10px;border:1px solid #ccc"><b>${RESTAURANTES[k].nombre}</b> - ${RESTAURANTES[k].grupo} - ${RESTAURANTES[k].activo?'ON':'OFF'} <a href="/toggle/${k}"><button>${RESTAURANTES[k].activo?'APAGAR':'PRENDER'}</button></a></div>`).join('');
-  res.send(`<html><body><h2>MANDADITOS BOT - V6</h2><h1 style="background:black;color:lime;padding:20px;">${pairingCode}</h1><form action="/pair"><input name="number" value="${lastNumber}"><button>GENERAR CLAVE</button></form> <a href="/reset"><button style="background:red;color:white;padding:10px;">RESET</button></a><hr><h3>6 SAGRADOS (los cambios se guardan permanentemente)</h3>${botones}</body></html>`);
+  const colorModo = modoSilencioso ? 'orange' : 'green';
+  const textoModo = modoSilencioso ? 'MODO SILENCIOSO: ACTIVO (no manda nada, solo registra en el log)' : 'MODO NORMAL (responde de verdad)';
+  res.send(`<html><body><h2>MANDADITOS BOT - V7</h2><h1 style="background:black;color:lime;padding:20px;">${pairingCode}</h1><form action="/pair"><input name="number" value="${lastNumber}"><button>GENERAR CLAVE</button></form> <a href="/reset"><button style="background:red;color:white;padding:10px;">RESET</button></a><hr><div style="padding:15px;background:${colorModo};color:white;font-weight:bold;">${textoModo} <a href="/silencioso"><button>${modoSilencioso?'ACTIVAR RESPUESTAS REALES':'ACTIVAR MODO SILENCIOSO'}</button></a></div><hr><h3>6 SAGRADOS (los cambios se guardan permanentemente)</h3>${botones}</body></html>`);
+});
+
+app.get('/silencioso', (req,res)=>{
+  modoSilencioso = !modoSilencioso;
+  guardarActivos();
+  res.redirect('/');
+});
+
+// ============ EXPERIMENTAL: buscar el LID/JID real de un número ============
+app.get('/buscar', async (req,res) => {
+  const numero = (req.query.numero || '').replace(/[^0-9]/g,'');
+  if (!numero) {
+    return res.send(`<html><body><h2>Buscar LID de un número</h2><form action="/buscar"><input name="numero" placeholder="Ej. 526699128588"><button>Buscar</button></form><p><a href="/">Volver</a></p></body></html>`);
+  }
+  try {
+    if (!sock) return res.send("El bot no está conectado todavía.");
+    const resultado = await sock.onWhatsApp(numero);
+    res.send(`<html><body><h2>Resultado para ${numero}</h2><pre>${JSON.stringify(resultado, null, 2)}</pre><p><a href="/buscar">Buscar otro</a></p><p><a href="/">Volver</a></p></body></html>`);
+  } catch(e) {
+    res.send(`<html><body><h2>Error</h2><pre>${e.message}</pre><p><a href="/buscar">Reintentar</a></p></body></html>`);
+  }
 });
 
 app.get('/toggle/:id', (req,res)=>{
