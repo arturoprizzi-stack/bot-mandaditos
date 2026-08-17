@@ -121,7 +121,7 @@ async function startBot() {
     browser: ["Ubuntu", "Chrome", "22.04.0"],
     syncFullHistory: false,
     markOnlineOnConnect: true,
-    fireInitQueries: true,
+    fireInitQueries: false,
     shouldSyncHistoryMessage: () => false,
     logger: P({ level: "warn" }),
     getMessage: async () => undefined
@@ -185,7 +185,7 @@ async function startBot() {
         await sock.sendMessage(jid,{text:"Yo"},{quoted:msg}); return;
       }
       if (grupoNorm.includes(norm("Veloces 2")) && RESTAURANTES.saboria.activo && esDeRestaurante('saboria', pushName, senderNumber) && textoContieneAlguna(textNorm,'saboria')) {
-        if (new Date().getDay() === 0) return;
+        if (new Date().getDay() !== 0) return; // Saboria SOLO trabaja domingos
         await sock.sendMessage(jid,{text:"Yo"},{quoted:msg}); return;
       }
       if (grupoNorm.includes(norm("Veloces 5")) && RESTAURANTES.roll.activo && esDeRestaurante('roll', pushName, senderNumber) && textoContieneAlguna(textNorm,'roll')) {
