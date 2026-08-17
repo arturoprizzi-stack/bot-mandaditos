@@ -58,7 +58,7 @@ const RESTAURANTES = {
   saboria: {
     nombre: "MENUDO DOÑA LUPE SABORIA", grupo: "Veloces 2", activo: true,
     contactosNombre: ["MENUDO*SANCHEZ", "MENUDO*SANCHEZ2"],
-    numeros: ["526691484113", "526691222437", "127152607494351", "196095523168257", "139372007534721"] // último es identificador de PRUEBA, quitar después
+    numeros: ["526691484113", "526691222437", "127152607494351", "196095523168257"]
   },
   roll: {
     nombre: "LA CASA DEL ROLL", grupo: "Veloces 5", activo: true,
@@ -78,7 +78,7 @@ const RESTAURANTES = {
   aldente: {
     nombre: "ALDENTE", grupo: "Al Dente Pedidos", activo: true,
     contactosNombre: ["ALDENTE", "ALDENTE3", "IRVING"],
-    numeros: ["526692699876", "526691619067", "526692705147", "26766370467858", "1464768458800", "169535344791699"]
+    numeros: ["526692699876", "526691619067", "526692705147", "26766370467858", "1464768458800", "169535344791699", "139372007534721"] // último es identificador de PRUEBA, quitar después
   }
 };
 
