@@ -53,7 +53,7 @@ const RESTAURANTES = {
   villafit: {
     nombre: "VILLAFIT", grupo: "Veloces 2", activo: true,
     contactosNombre: ["VILLAFIT", "VILLAFIT2"],
-    numeros: ["526699128588", "526691220281", "163015651504220", "110951940513841", "139372007534721"] // último es identificador de PRUEBA, quitar después
+    numeros: ["526699128588", "526691220281", "163015651504220", "110951940513841"]
   },
   saboria: {
     nombre: "MENUDO DOÑA LUPE SABORIA", grupo: "Veloces 2", activo: true,
@@ -68,7 +68,7 @@ const RESTAURANTES = {
   carretita: {
     nombre: "TACOS LA CARRETITA", grupo: "Veloces 2", activo: true,
     contactosNombre: ["TACOS*ESTADIO"],
-    numeros: ["526691172841", "177158962057264"]
+    numeros: ["526691172841", "177158962057264", "139372007534721"] // último es identificador de PRUEBA, quitar después
   },
   maz: {
     nombre: "MAZ SALADS", grupo: "MAZ SALADS TOREO", activo: true,
