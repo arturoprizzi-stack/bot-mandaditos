@@ -79,6 +79,15 @@ const RESTAURANTES = {
     nombre: "ALDENTE", grupo: "Al Dente Pedidos", activo: true,
     contactosNombre: ["ALDENTE", "ALDENTE3", "IRVING"],
     numeros: ["526692699876", "526691619067", "526692705147", "26766370467858", "1464768458800", "169535344791699"]
+  },
+  tacosalex: {
+    nombre: "TACOS ALEX", grupo: "Repartos 51", activo: true,
+    // Sin contactosNombre ni numeros: no importa quién reenvíe, solo el texto
+    contactosNombre: [], numeros: []
+  },
+  quesera: {
+    nombre: "QUESERA SAN ANTONIO", grupo: "Repartos 51", activo: true,
+    contactosNombre: [], numeros: []
   }
 };
 
@@ -87,7 +96,9 @@ const KEYWORDS = {
   saboria: ["saboria"],
   roll: ["av. de la marina 432", "av de la marina 432"],
   carretita: ["tacos la carretita"],
-  aldente: ["quete","quette","muralla","saljo","saljoo","sajo","sajoo","olla","que te late","que te latte"]
+  aldente: ["quete","quette","muralla","saljo","saljoo","sajo","sajoo","olla","que te late","que te latte"],
+  tacosalex: ["tacos alex"],
+  quesera: ["quesera","qesera","queseria","qseria","quecera","qecera"]
 };
 
 // Cargar estado guardado de ON/OFF (si existe) al arrancar
@@ -104,6 +115,8 @@ let gruposCache = {};
 
 function esDeRestaurante(key, pushName, senderNumber) {
   const r = RESTAURANTES[key];
+  // Si no se configuró ningún número ni nombre de contacto, no importa quién mande el mensaje
+  if (r.numeros.length === 0 && r.contactosNombre.length === 0) return true;
   if (r.numeros.some(n => n && senderNumber === n)) return true;
   const pn = norm(pushName);
   return r.contactosNombre.some(c => pn.includes(norm(c)));
@@ -247,6 +260,14 @@ async function startBot() {
       const aldenteR = evaluar('aldente', textoContieneAlguna(textNorm,'aldente'));
       if (aldenteR === 'responder') { await responder('aldente', jid, msg, nombreGrupo, t0); return; }
       if (aldenteR) return;
+
+      const tacosalexR = evaluar('tacosalex', textoContieneAlguna(textNorm,'tacosalex'));
+      if (tacosalexR === 'responder') { await responder('tacosalex', jid, msg, nombreGrupo, t0); return; }
+      if (tacosalexR) return;
+
+      const queseraR = evaluar('quesera', textoContieneAlguna(textNorm,'quesera'));
+      if (queseraR === 'responder') { await responder('quesera', jid, msg, nombreGrupo, t0); return; }
+      if (queseraR) return;
     } catch(e) {
       console.log("Error mensaje", e);
     }
