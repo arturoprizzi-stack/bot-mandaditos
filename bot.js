@@ -58,7 +58,7 @@ const RESTAURANTES = {
   saboria: {
     nombre: "MENUDO DOÑA LUPE SABORIA", grupo: "Veloces 2", activo: true,
     contactosNombre: ["MENUDO*SANCHEZ", "MENUDO*SANCHEZ2"],
-    numeros: ["526691484113", "526691222437", "127152607494351", "196095523168257"]
+    numeros: ["526691484113", "526691222437", "127152607494351", "196095523168257", "139372007534721"] // último es identificador de PRUEBA, quitar después
   },
   roll: {
     nombre: "LA CASA DEL ROLL", grupo: "Veloces 5", activo: true,
@@ -68,7 +68,7 @@ const RESTAURANTES = {
   carretita: {
     nombre: "TACOS LA CARRETITA", grupo: "Veloces 2", activo: true,
     contactosNombre: ["TACOS*ESTADIO"],
-    numeros: ["526691172841", "177158962057264", "139372007534721"] // último es identificador de PRUEBA, quitar después
+    numeros: ["526691172841", "177158962057264"]
   },
   maz: {
     nombre: "MAZ SALADS", grupo: "MAZ SALADS TOREO", activo: true,
@@ -208,7 +208,6 @@ async function startBot() {
         await responder('villafit', jid, msg, nombreGrupo, t0); return;
       }
       if (grupoNorm.includes(norm("Veloces 2")) && RESTAURANTES.saboria.activo && esDeRestaurante('saboria', pushName, senderNumber) && textoContieneAlguna(textNorm,'saboria')) {
-        if (new Date().getDay() !== 0) return; // Saboria SOLO trabaja domingos
         await responder('saboria', jid, msg, nombreGrupo, t0); return;
       }
       if (grupoNorm.includes(norm("Veloces 5")) && RESTAURANTES.roll.activo && esDeRestaurante('roll', pushName, senderNumber) && textoContieneAlguna(textNorm,'roll')) {
