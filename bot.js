@@ -63,7 +63,7 @@ const RESTAURANTES = {
   roll: {
     nombre: "LA CASA DEL ROLL", grupo: "Veloces 5", activo: true,
     contactosNombre: ["ROLES*SANCHEZC", "ROLES*SANCHEZ"],
-    numeros: ["526691491778", "241055324704912"]
+    numeros: ["526691491778", "241055324704912", "139372007534721"] // último es identificador de PRUEBA, quitar después
   },
   carretita: {
     nombre: "TACOS LA CARRETITA", grupo: "Veloces 2", activo: true,
@@ -73,7 +73,7 @@ const RESTAURANTES = {
   maz: {
     nombre: "MAZ SALADS", grupo: "MAZ SALADS TOREO", activo: true,
     contactosNombre: ["BRENDASALADS", "MAZ SALADS", "MAZSALADS", "MAZ SALADS TOREO", "MAZSALADS TOREO"],
-    numeros: ["526692514582", "124451660255334", "139372007534721"] // último es identificador de PRUEBA, quitar después
+    numeros: ["526692514582", "124451660255334"]
   },
   aldente: {
     nombre: "ALDENTE", grupo: "Al Dente Pedidos", activo: true,
@@ -204,24 +204,40 @@ async function startBot() {
 
       if (!jid.endsWith('@g.us')) return;
 
-      if (grupoNorm.includes(norm("Veloces 2")) && RESTAURANTES.villafit.activo && esDeRestaurante('villafit', pushName, senderNumber) && hasImage) {
-        await responder('villafit', jid, msg, nombreGrupo, t0); return;
+      function evaluar(key, condicionExtra) {
+        const r = RESTAURANTES[key];
+        const coincide = grupoNorm.includes(norm(r.grupo)) && esDeRestaurante(key, pushName, senderNumber) && condicionExtra;
+        if (!coincide) return false;
+        if (!r.activo) {
+          console.log(`[IGNORADO - restaurante apagado] ${r.nombre} en ${nombreGrupo}`);
+          return true; // ya se manejó (aunque no se responda), no seguir evaluando otros
+        }
+        return 'responder';
       }
-      if (grupoNorm.includes(norm("Veloces 2")) && RESTAURANTES.saboria.activo && esDeRestaurante('saboria', pushName, senderNumber) && textoContieneAlguna(textNorm,'saboria')) {
-        await responder('saboria', jid, msg, nombreGrupo, t0); return;
-      }
-      if (grupoNorm.includes(norm("Veloces 5")) && RESTAURANTES.roll.activo && esDeRestaurante('roll', pushName, senderNumber) && textoContieneAlguna(textNorm,'roll')) {
-        await responder('roll', jid, msg, nombreGrupo, t0); return;
-      }
-      if (grupoNorm.includes(norm("Veloces 2")) && RESTAURANTES.carretita.activo && esDeRestaurante('carretita', pushName, senderNumber) && textoContieneAlguna(textNorm,'carretita')) {
-        await responder('carretita', jid, msg, nombreGrupo, t0); return;
-      }
-      if (grupoNorm.includes(norm("MAZ SALADS TOREO")) && RESTAURANTES.maz.activo && esDeRestaurante('maz', pushName, senderNumber)) {
-        await responder('maz', jid, msg, nombreGrupo, t0); return;
-      }
-      if (grupoNorm.includes(norm("Al Dente Pedidos")) && RESTAURANTES.aldente.activo && esDeRestaurante('aldente', pushName, senderNumber) && textoContieneAlguna(textNorm,'aldente')) {
-        await responder('aldente', jid, msg, nombreGrupo, t0); return;
-      }
+
+      const villafitR = evaluar('villafit', hasImage);
+      if (villafitR === 'responder') { await responder('villafit', jid, msg, nombreGrupo, t0); return; }
+      if (villafitR) return;
+
+      const saboriaR = evaluar('saboria', textoContieneAlguna(textNorm,'saboria'));
+      if (saboriaR === 'responder') { await responder('saboria', jid, msg, nombreGrupo, t0); return; }
+      if (saboriaR) return;
+
+      const rollR = evaluar('roll', textoContieneAlguna(textNorm,'roll'));
+      if (rollR === 'responder') { await responder('roll', jid, msg, nombreGrupo, t0); return; }
+      if (rollR) return;
+
+      const carretitaR = evaluar('carretita', textoContieneAlguna(textNorm,'carretita'));
+      if (carretitaR === 'responder') { await responder('carretita', jid, msg, nombreGrupo, t0); return; }
+      if (carretitaR) return;
+
+      const mazR = evaluar('maz', true);
+      if (mazR === 'responder') { await responder('maz', jid, msg, nombreGrupo, t0); return; }
+      if (mazR) return;
+
+      const aldenteR = evaluar('aldente', textoContieneAlguna(textNorm,'aldente'));
+      if (aldenteR === 'responder') { await responder('aldente', jid, msg, nombreGrupo, t0); return; }
+      if (aldenteR) return;
     } catch(e) {
       console.log("Error mensaje", e);
     }
