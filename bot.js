@@ -63,7 +63,7 @@ const RESTAURANTES = {
   roll: {
     nombre: "LA CASA DEL ROLL", grupo: "Veloces 5", activo: true,
     contactosNombre: ["ROLES*SANCHEZC", "ROLES*SANCHEZ"],
-    numeros: ["526691491778", "241055324704912", "139372007534721"] // último es identificador de PRUEBA, quitar después
+    numeros: ["526691491778", "241055324704912"]
   },
   carretita: {
     nombre: "TACOS LA CARRETITA", grupo: "Veloces 2", activo: true,
