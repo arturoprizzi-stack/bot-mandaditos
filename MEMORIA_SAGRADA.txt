@@ -1,1 +1,18 @@
+# MEMORIA SAGRADA - NO BORRAR - 6 REALES + TRUCO MEXICO
+# Fuente de verdad
+REGLA: Interruptores POR RESTAURANTE
+1) VILLAFIT - VILLAFIT,VILLAFIT2 - Veloces 2 - Solo FOTOS = Yo
+2) MENUDO DOÑA LUPE SABORIA - MENUDO*SANCHEZ, MENUDO*SANCHEZ2 - Veloces 2 - SABORIA - domingos
+3) LA CASA DEL ROLL - ROLES*SANCHEZC - Veloces 5 - Av. de la Marina 432
+4) TACOS LA CARRETITA - TACOS*ESTADIO - Veloces 2 - Tacos La Carretita
+5) MAZ SALADS - BRENDASALADS - MAZ SALADS TOREO
+6) ALDENTE - ALDENTE - Al Dente Pedidos - quete, quette, muralla, saljo, saljoo, sajo, sajoo, olla
+--- TRUCO VINCULACION MEXICO - NO BORRAR NUNCA ---
+Fecha: 2026-08-16 04:33 am - 3 horas atascados
+Solucion que funciono hace 12h y hoy:
+1) browser: ["Ubuntu", "Chrome", "22.04.0"] - NO Baileys
+2) Numero con 52: 526695456822
+Si borras esto, vuelve a fallar.
 
+-----PARA SABER EL LID DE UN TELEFONO CELULAR------
+https://bot-mandaditos.onrender.com/buscar?numero
