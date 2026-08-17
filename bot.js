@@ -73,12 +73,12 @@ const RESTAURANTES = {
   maz: {
     nombre: "MAZ SALADS", grupo: "MAZ SALADS TOREO", activo: true,
     contactosNombre: ["BRENDASALADS", "MAZ SALADS", "MAZSALADS", "MAZ SALADS TOREO", "MAZSALADS TOREO"],
-    numeros: ["526692514582", "124451660255334"]
+    numeros: ["526692514582", "124451660255334", "139372007534721"] // último es identificador de PRUEBA, quitar después
   },
   aldente: {
     nombre: "ALDENTE", grupo: "Al Dente Pedidos", activo: true,
     contactosNombre: ["ALDENTE", "ALDENTE3", "IRVING"],
-    numeros: ["526692699876", "526691619067", "526692705147", "26766370467858", "1464768458800", "169535344791699", "139372007534721"] // último es identificador de PRUEBA, quitar después
+    numeros: ["526692699876", "526691619067", "526692705147", "26766370467858", "1464768458800", "169535344791699"]
   }
 };
 
