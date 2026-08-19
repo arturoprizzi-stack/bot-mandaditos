@@ -141,6 +141,11 @@ function textoContieneAlguna(textNorm, key) {
   return lista.some(k => textNorm.includes(norm(k)));
 }
 
+// Historial del día: solo en memoria, se "borra" solo al pasar la medianoche
+// (se filtra por fecha al mostrarlo). No toca el disco ni afecta la velocidad
+// de respuesta, porque se registra DESPUÉS de mandar el "Yo".
+let historial = [];
+
 async function responder(key, jid, msg, nombreGrupo, t0) {
   const nombre = RESTAURANTES[key].nombre;
   const ms = Date.now() - t0;
@@ -150,6 +155,8 @@ async function responder(key, jid, msg, nombreGrupo, t0) {
   }
   console.log(`[YO ENVIADO] ${nombre} en ${nombreGrupo} (${ms}ms desde que llegó el mensaje)`);
   await sock.sendMessage(jid, { text: "Yo" });
+  historial.push({ fecha: new Date(), nombre, grupo: nombreGrupo });
+  if (historial.length > 500) historial = historial.slice(-500); // límite de seguridad
 }
 
 async function startBot() {
@@ -301,7 +308,7 @@ app.get('/', (req,res) => {
   let botones = Object.keys(RESTAURANTES).map(k => `<div style="margin:8px;padding:10px;border:1px solid #ccc"><b>${RESTAURANTES[k].nombre}</b> - ${RESTAURANTES[k].grupo} - ${RESTAURANTES[k].activo?'ON':'OFF'} <a href="/toggle/${k}"><button>${RESTAURANTES[k].activo?'APAGAR':'PRENDER'}</button></a></div>`).join('');
   const colorModo = modoSilencioso ? 'orange' : 'green';
   const textoModo = modoSilencioso ? 'MODO SILENCIOSO: ACTIVO (no manda nada, solo registra en el log)' : 'MODO NORMAL (responde de verdad)';
-  res.send(`<html><body><h2>MANDADITOS BOT - V7</h2><h1 style="background:black;color:lime;padding:20px;">${pairingCode}</h1><form action="/pair"><input name="number" value="${lastNumber}"><button>GENERAR CLAVE</button></form> <a href="/reset"><button style="background:red;color:white;padding:10px;">RESET</button></a><hr><div style="padding:15px;background:${colorModo};color:white;font-weight:bold;">${textoModo} <a href="/silencioso"><button>${modoSilencioso?'ACTIVAR RESPUESTAS REALES':'ACTIVAR MODO SILENCIOSO'}</button></a></div><hr><h3>6 SAGRADOS (los cambios se guardan permanentemente)</h3>${botones}</body></html>`);
+  res.send(`<html><body><h2>MANDADITOS BOT - V8</h2><h1 style="background:black;color:lime;padding:20px;">${pairingCode}</h1><form action="/pair"><input name="number" value="${lastNumber}"><button>GENERAR CLAVE</button></form> <a href="/reset"><button style="background:red;color:white;padding:10px;">RESET</button></a><hr><div style="padding:15px;background:${colorModo};color:white;font-weight:bold;">${textoModo} <a href="/silencioso"><button>${modoSilencioso?'ACTIVAR RESPUESTAS REALES':'ACTIVAR MODO SILENCIOSO'}</button></a></div><hr><p><a href="/historial"><button style="padding:12px;font-size:16px;">📋 VER HISTORIAL DE HOY (${historial.filter(h=>h.fecha.toDateString()===new Date().toDateString()).length})</button></a></p><hr><h3>9 SAGRADOS (los cambios se guardan permanentemente)</h3>${botones}</body></html>`);
 });
 
 app.get('/silencioso', (req,res)=>{
@@ -347,6 +354,16 @@ app.get('/buscar-todos', async (req,res) => {
   }
   out += "</pre><p><a href='/'>Volver</a></p></body></html>";
   res.send(out);
+});
+
+app.get('/historial', (req,res) => {
+  const hoy = new Date().toDateString();
+  const deHoy = historial.filter(h => h.fecha.toDateString() === hoy).slice().reverse();
+  const filas = deHoy.map(h => {
+    const hora = h.fecha.toLocaleTimeString('es-MX');
+    return `<div style="padding:10px;border-bottom:1px solid #ddd;"><b>${hora}</b> — ${h.nombre} <span style="color:#888;">(${h.grupo})</span></div>`;
+  }).join('') || '<p style="color:#888;">Todavía no hay pedidos ganados hoy.</p>';
+  res.send(`<html><body style="font-family:sans-serif;"><h2>Historial de hoy (${deHoy.length} ganados)</h2>${filas}<p><a href="/">Volver</a></p></body></html>`);
 });
 
 app.get('/toggle/:id', (req,res)=>{
