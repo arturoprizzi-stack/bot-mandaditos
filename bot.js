@@ -92,7 +92,7 @@ const RESTAURANTES = {
   moai: {
     nombre: "MOAI", grupo: "Veloces 3", activo: true,
     contactosNombre: [],
-    numeros: ["526691244534", "86166187597906", "139372007534721"] // último es identificador de PRUEBA, quitar después
+    numeros: ["526691244534", "86166187597906"]
   }
 };
 
