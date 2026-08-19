@@ -88,6 +88,11 @@ const RESTAURANTES = {
   quesera: {
     nombre: "QUESERA SAN ANTONIO", grupo: "Repartos 51", activo: true,
     contactosNombre: [], numeros: []
+  },
+  moai: {
+    nombre: "MOAI", grupo: "Veloces 3", activo: true,
+    contactosNombre: [],
+    numeros: ["526691244534", "86166187597906"]
   }
 };
 
@@ -98,8 +103,17 @@ const KEYWORDS = {
   carretita: ["tacos la carretita"],
   aldente: ["quete","quette","muralla","saljo","saljoo","sajo","sajoo","olla","que te late","que te latte"],
   tacosalex: ["tacos alex"],
-  quesera: ["quesera","qesera","queseria","qseria","quecera","qecera","qsera","qcera","quesria","qeseria","qesria","qcseria"]
+  quesera: ["quesera","qesera","queseria","qseria","quecera","qecera","qsera","qcera","quesria","qeseria","qesria","qcseria"],
+  moai: ["moai"]
 };
+
+// Palabras de CIERRE/CONFIRMACIÓN: si el mensaje las trae, es que el pedido
+// ya se entregó (o se está citando ese mensaje) — no es un pedido nuevo.
+// Aplica a TODOS los restaurantes por igual.
+const PALABRAS_CIERRE = ["entregado", "listo", "quedo"];
+function esMensajeDeCierre(textNorm) {
+  return PALABRAS_CIERRE.some(p => textNorm.includes(norm(p)));
+}
 
 // Cargar estado guardado de ON/OFF (si existe) al arrancar
 const activosGuardados = cargarActivos();
@@ -226,6 +240,11 @@ async function startBot() {
 
       if (!jid.endsWith('@g.us')) return;
 
+      if (esMensajeDeCierre(textNorm)) {
+        console.log(`[IGNORADO - mensaje de cierre/confirmacion] ${nombreGrupo} | Texto:${textoOriginal.substring(0,60)}`);
+        return;
+      }
+
       function evaluar(key, condicionExtra) {
         const r = RESTAURANTES[key];
         const coincide = grupoNorm.includes(norm(r.grupo)) && esDeRestaurante(key, pushName, senderNumber) && condicionExtra;
@@ -268,6 +287,10 @@ async function startBot() {
       const queseraR = evaluar('quesera', textoContieneAlguna(textNorm,'quesera'));
       if (queseraR === 'responder') { await responder('quesera', jid, msg, nombreGrupo, t0); return; }
       if (queseraR) return;
+
+      const moaiR = evaluar('moai', textoContieneAlguna(textNorm,'moai'));
+      if (moaiR === 'responder') { await responder('moai', jid, msg, nombreGrupo, t0); return; }
+      if (moaiR) return;
     } catch(e) {
       console.log("Error mensaje", e);
     }
