@@ -93,6 +93,11 @@ const RESTAURANTES = {
     nombre: "MOAI", grupo: "Veloces 3", activo: true,
     contactosNombre: [],
     numeros: ["526691244534", "86166187597906"]
+  },
+  gildas: {
+    nombre: "GILDA'S", grupo: "Veloces 2", activo: true,
+    contactosNombre: ["REST*INFOPLAY"],
+    numeros: []
   }
 };
 
@@ -104,7 +109,8 @@ const KEYWORDS = {
   aldente: ["quete","quette","muralla","saljo","saljoo","sajo","sajoo","olla","que te late","que te latte"],
   tacosalex: ["tacos alex"],
   quesera: ["quesera","qesera","queseria","qseria","quecera","qecera","qsera","qcera","quesria","qeseria","qesria","qcseria","quesra"],
-  moai: ["moai"]
+  moai: ["moai"],
+  gildas: ["ramon f iturbe 430"]
 };
 
 // Palabras de CIERRE/CONFIRMACIÓN: si el mensaje las trae Y además es una
@@ -305,6 +311,10 @@ async function startBot() {
       const moaiR = evaluar('moai', textoContieneAlguna(textNorm,'moai'));
       if (moaiR === 'responder') { await responder('moai', jid, msg, nombreGrupo, t0); return; }
       if (moaiR) return;
+
+      const gildasR = evaluar('gildas', textoContieneAlguna(textNorm,'gildas'));
+      if (gildasR === 'responder') { await responder('gildas', jid, msg, nombreGrupo, t0); return; }
+      if (gildasR) return;
     } catch(e) {
       console.log("Error mensaje", e);
     }
