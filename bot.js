@@ -97,7 +97,7 @@ const RESTAURANTES = {
   gildas: {
     nombre: "GILDA'S", grupo: "Veloces 2", activo: true,
     contactosNombre: ["REST*INFOPLAY"],
-    numeros: []
+    numeros: ["526692231372", "17974639497411"]
   }
 };
 
