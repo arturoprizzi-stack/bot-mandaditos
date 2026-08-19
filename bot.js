@@ -103,16 +103,22 @@ const KEYWORDS = {
   carretita: ["tacos la carretita"],
   aldente: ["quete","quette","muralla","saljo","saljoo","sajo","sajoo","olla","que te late","que te latte"],
   tacosalex: ["tacos alex"],
-  quesera: ["quesera","qesera","queseria","qseria","quecera","qecera","qsera","qcera","quesria","qeseria","qesria","qcseria"],
+  quesera: ["quesera","qesera","queseria","qseria","quecera","qecera","qsera","qcera","quesria","qeseria","qesria","qcseria","quesra"],
   moai: ["moai"]
 };
 
-// Palabras de CIERRE/CONFIRMACIÓN: si el mensaje las trae, es que el pedido
-// ya se entregó (o se está citando ese mensaje) — no es un pedido nuevo.
-// Aplica a TODOS los restaurantes por igual.
+// Palabras de CIERRE/CONFIRMACIÓN: si el mensaje las trae Y además es una
+// respuesta citando (quoting) otro mensaje, es que el pedido ya se entregó
+// — no es un pedido nuevo. IMPORTANTE: solo aplica cuando hay cita real, o
+// cuando el mensaje es muy corto (3 palabras o menos) — así no bloqueamos
+// pedidos legítimos que por casualidad usan alguna de estas palabras como
+// parte normal del texto (ej. Aldente a veces termina sus pedidos en "listo").
 const PALABRAS_CIERRE = ["entregado", "listo", "quedo"];
-function esMensajeDeCierre(textNorm) {
-  return PALABRAS_CIERRE.some(p => textNorm.includes(norm(p)));
+function esMensajeDeCierre(textNorm, esRespuestaCitando) {
+  const contieneCierre = PALABRAS_CIERRE.some(p => textNorm.includes(norm(p)));
+  if (!contieneCierre) return false;
+  const pocasPalabras = textNorm.split(' ').filter(Boolean).length <= 3;
+  return esRespuestaCitando || pocasPalabras;
 }
 
 // Cargar estado guardado de ON/OFF (si existe) al arrancar
@@ -227,6 +233,7 @@ async function startBot() {
 
       const textoOriginal = contenido?.conversation || contenido?.extendedTextMessage?.text || contenido?.imageMessage?.caption || "";
       const textNorm = norm(textoOriginal);
+      const esRespuestaCitando = !!(contenido?.extendedTextMessage?.contextInfo?.quotedMessage);
       const pushName = msg.pushName || "SIN NOMBRE";
       const hasImage = !!contenido?.imageMessage;
 
@@ -247,7 +254,7 @@ async function startBot() {
 
       if (!jid.endsWith('@g.us')) return;
 
-      if (esMensajeDeCierre(textNorm)) {
+      if (esMensajeDeCierre(textNorm, esRespuestaCitando)) {
         console.log(`[IGNORADO - mensaje de cierre/confirmacion] ${nombreGrupo} | Texto:${textoOriginal.substring(0,60)}`);
         return;
       }
